@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# MediaPipe task models (downloaded, not authored)
+*.task
+
+# macOS
+.DS_Store
