@@ -86,6 +86,7 @@ class Instrument:
         self.roll = None            # chord-hand roll this frame, None when not in view
         self.chord_fingers = None   # held tuples, for the overlay
         self.expr_fingers = None
+        self.expr_missing = 0       # consecutive frames without the expression hand
 
     def update(self, hands: HandsFrame, key: str | None = None) -> bool:
         """Advance one frame. Returns True when the chord (key/degree/flipped/mod) changed."""
@@ -106,6 +107,7 @@ class Instrument:
             self.roll = self.chord_fingers = None
 
         if expr_hand:
+            self.expr_missing = 0
             self.expr_fingers = self.hold_mod.update(self.fingers_fn(expr_hand.landmarks, expr_hand.label))
             mod = cfg.MOD_MAP.get(self.expr_fingers, KEEP)
             if mod != KEEP:
@@ -116,10 +118,14 @@ class Instrument:
             self.ema_gain.update(clamp01((wy - cfg.WRIST_Y_QUIET) / (cfg.WRIST_Y_LOUD - cfg.WRIST_Y_QUIET)))
             self.ema_bright.update(clamp01((self.feats.pinch_norm(expr_hand.landmarks) - cfg.PINCH_MIN)
                                            / (cfg.PINCH_MAX - cfg.PINCH_MIN)))
-        else:                       # mod resets; volume, brightness and space hold
-            new["mod"] = "none"
-            self.expr_fingers = None
-            self.hold_mod = Hold(cfg.HOLD_FRAMES)   # re-entry must re-settle, not replay the old mod
+        else:
+            # Gone for HOLD_FRAMES frames → mod resets (volume, brightness and space hold). A one-frame
+            # tracking dropout changes nothing, so the chord doesn't stutter.
+            self.expr_missing += 1
+            if self.expr_missing >= cfg.HOLD_FRAMES:
+                new["mod"] = "none"
+                self.expr_fingers = None
+                self.hold_mod = Hold(cfg.HOLD_FRAMES)   # re-entry must re-settle, not replay the old mod
 
         changed = new != self.state
         self.state = new

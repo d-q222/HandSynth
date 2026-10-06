@@ -222,3 +222,15 @@ def test_fit_width_keeps_aspect():
     assert fit_width(np.zeros((1080, 1920, 3), np.uint8), 1280).shape == (720, 1280, 3)
     f = np.zeros((720, 1280, 3), np.uint8)
     assert fit_width(f, 1280) is f
+
+
+def test_expression_dropout_does_not_stutter(inst):
+    n = cfg.HOLD_FRAMES + 1
+    play(inst, n, lh=left(INDEX), rh=right(IMR))
+    assert names(inst) == "Am7"
+    for gap in range(1, cfg.HOLD_FRAMES):                 # short tracking dropouts
+        assert not play(inst, gap, lh=left(INDEX))
+        assert not play(inst, 1, lh=left(INDEX), rh=right(IMR))
+        assert names(inst) == "Am7"
+    play(inst, cfg.HOLD_FRAMES, lh=left(INDEX))          # really gone
+    assert names(inst) == "Am"

@@ -63,7 +63,7 @@ BLOCK_SIZE = 256                # raise to 512 if the overlay shows XRUN persist
 WAVEFORM = "triangle"           # "sine" | "triangle" | "saw"   (cycle live with 'w')
 WAVEFORMS = ["sine", "triangle", "saw"]
 ATTACK_S, RELEASE_S = 0.02, 0.08
-DETUNE_CENTS = 7.0              # unison: each note is two oscillators at ±this many cents (0 = off)
+DETUNE_CENTS = 7.0              # unison: centre oscillator + a pair detuned ±this many cents (0 = off)
 REVERB_ROOM = 0.84              # reverb tail length: comb feedback, 0..0.95
 REVERB_DAMP = 0.4               # high-frequency damping inside the tail, 0..1
 GAIN_RAMP_S = 0.02              # master-gain smoothing inside the audio thread

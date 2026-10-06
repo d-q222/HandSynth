@@ -117,7 +117,7 @@ extra audio stack, taking about 0.1 ms of CPU per 5.8 ms audio block.
   last chord. Common tones are held (C → Am keeps C and E), so changes glide instead of jumping as a block.
   The voiced notes stay inside `VOICING_RANGE`, and `VOICE_LEADING = False` turns this off.
 - **Bass.** The root an octave below sits under every chord. `BASS_NOTE = False` removes it.
-- **Unison.** Each note is two oscillators detuned by ±`DETUNE_CENTS`, for a slow chorus shimmer.
+- **Unison.** Each note is a centre oscillator plus a pair detuned by ±`DETUNE_CENTS`, for a slow chorus shimmer. The centre keeps the fundamental steady, so the bass never beats out.
 - **Reverb.** A Freeverb-style room (`REVERB_ROOM`, `REVERB_DAMP`). Its mix follows the right
   hand's horizontal position, within `REVERB_MIX_RANGE`.
 - **Click-free.** Every chord change is a crossfade between per-voice envelopes. Gain, cutoff, reverb and
