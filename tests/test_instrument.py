@@ -4,7 +4,7 @@ import pytest
 from hand_synth import config as cfg
 from hand_synth import standins
 from hand_synth.main import Instrument
-from hand_synth.music import chord_freqs
+from hand_synth.music import chord_midi
 from hand_synth.tracking import Hand, HandsFrame, _assign
 from synthetic_hand import make_hand
 
@@ -53,7 +53,8 @@ def test_checklist(inst):
     assert names(inst) == "Asus4"
     play(inst, n, lh=left(INDEX), rh=right(IMR))
     assert names(inst) == "Am7"
-    assert inst.freqs() == chord_freqs("G", 2, False, "add7", cfg.ROOT_OCTAVE)
+    assert {n % 12 for n in inst.voicing} == {n % 12 for n in chord_midi("G", 2, False, "add7")}
+    assert len(inst.freqs()) == len(inst.voicing)
     play(inst, n, lh=left(FIST), rh=right(OPEN))
     assert inst.freqs() == [] and names(inst) == "-"
     play(inst, n, lh=left(OPEN), key="D")
@@ -151,3 +152,17 @@ def test_fixture_filename_tag_is_the_truth(tmp_path, monkeypatch):
     monkeypatch.setattr(conftest, "FIXTURE_ROOT", tmp_path)
     [param] = conftest.load_fixtures("fingers")
     assert param.values[0]["expected"]["fingers"] == [False, True, True, True, True]
+
+
+def test_progression_is_voice_led(inst):
+    """G → C → D → G in G: upper voices move a few semitones, never a block leap."""
+    n = cfg.HOLD_FRAMES + 1
+    prev = None
+    for state in (OPEN, IMR, (False, True, True, True, True), OPEN):     # I, IV, V, I
+        play(inst, n, lh=left(state))
+        upper = inst.voicing[1:] if cfg.BASS_NOTE else inst.voicing
+        lo, hi = cfg.VOICING_RANGE
+        assert all(lo <= m <= hi for m in upper)
+        if prev:
+            assert max(min(abs(a - b) for b in prev) for a in upper) <= 5
+        prev = upper

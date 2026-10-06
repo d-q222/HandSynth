@@ -1,4 +1,6 @@
 """Chord theory: key + degree + flip + mod -> MIDI, Hz, name. Pure functions."""
+from itertools import product
+
 from . import config
 
 MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11]
@@ -75,3 +77,73 @@ def chord_name(key, degree, flipped=False, mod="none"):
     else:
         suffix = _ADD6_SUFFIX[q]
     return config.KEY_NAMES[scale(key)[degree - 1]] + suffix
+
+
+def _placements(pc, low, high):
+    return [n for n in range(low, high + 1) if n % 12 == pc]
+
+
+def voice_lead(notes, prev, low, high):
+    """Re-voice `notes` to move as little as possible from `prev`, keeping each pitch
+    class once, within [low, high]. Returns sorted MIDI notes.
+
+    Cost = sum of each new note's distance to the nearest prev note plus each prev
+    note's distance to the nearest new note; ties go to the more compact, then lower
+    voicing. With no prev: the chord as given, shifted by octaves into range (root
+    stays lowest). A range narrower than an octave is widened upward to 12 semitones
+    so every pitch class fits; a chord that cannot be shifted into range falls back
+    to its most compact in-range placement.
+    """
+    notes = sorted(notes)
+    if not notes:
+        return []
+    if high - low < 11:
+        high = low + 11
+    if not prev:
+        shift = 0
+        while notes[0] + shift < low:
+            shift += 12
+        while notes[-1] + shift > high and notes[0] + shift - 12 >= low:
+            shift -= 12
+        if notes[0] + shift >= low and notes[-1] + shift <= high:
+            return [n + shift for n in notes]
+    pcs = [n % 12 for n in notes]
+    options = [_placements(pc, low, high) for pc in pcs]
+    prev = list(prev) if prev else []
+    best_key, best = None, None
+    for combo in product(*options):
+        voicing = sorted(combo)
+        if prev:
+            cost = (sum(min(abs(n - p) for p in prev) for n in voicing)
+                    + sum(min(abs(n - p) for n in voicing) for p in prev))
+        else:
+            cost = 0
+        key = (cost, voicing[-1] - voicing[0], sum(voicing))
+        if best_key is None or key < best_key:
+            best_key, best = key, voicing
+    return best
+
+
+def with_bass(notes, root_midi):
+    """Add the chord root an octave below `root_midi`, sorted, no duplicates."""
+    return sorted(set(notes) | {root_midi - 12})
+
+
+def chord_voicing(key, degree, flipped, mod, octave, prev, voice_leading, voicing_range, bass):
+    """chord_midi -> optional voice_lead within voicing_range -> optional bass.
+
+    `prev` is the previous chord_voicing result (bass included, lowest note stripped
+    when bass=True). The bass is root-12, dropped further by octaves if needed to sit
+    below the voiced notes. Returns sorted MIDI notes.
+    """
+    notes = chord_midi(key, degree, flipped, mod, octave)
+    root = notes[0]
+    if voice_leading:
+        upper_prev = sorted(prev)[1:] if (prev and bass) else prev
+        notes = voice_lead(notes, upper_prev, voicing_range[0], voicing_range[1])
+    if not bass:
+        return sorted(notes)
+    b = root - 12
+    while b >= min(notes):
+        b -= 12
+    return sorted(set(notes) | {b})

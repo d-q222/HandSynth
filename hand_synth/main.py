@@ -15,7 +15,7 @@ import cv2
 from . import config as cfg
 from . import keycodes, standins
 from .gesture import KEEP, FingerMapSource
-from .music import chord_freqs, chord_name
+from .music import chord_name, chord_voicing, midi_to_hz
 from .stabilize import EMA, Hold, RollZone
 from .synth import SynthParams
 from .tracking import REPO_ROOT, HandsFrame
@@ -44,8 +44,10 @@ class Instrument:
         self.hold_roll = Hold(cfg.HOLD_FRAMES, initial="natural")
         self.ema_gain = EMA(cfg.EMA_ALPHA, cfg.GAIN_START)
         self.ema_bright = EMA(cfg.EMA_ALPHA, cfg.BRIGHTNESS_START)
+        self.ema_space = EMA(cfg.EMA_ALPHA, cfg.REVERB_START)
         self.waveform = cfg.WAVEFORM
         self.state = {"key": key, "degree": None, "flipped": False, "mod": "none"}
+        self.voicing: list[int] = []  # MIDI notes now sounding (voice-led from the previous chord)
         self.roll = None            # chord-hand roll this frame, None when not in view
         self.chord_fingers = None   # held tuples, for the overlay
         self.expr_fingers = None
@@ -73,22 +75,27 @@ class Instrument:
             mod = cfg.MOD_MAP.get(self.expr_fingers, KEEP)
             if mod != KEEP:
                 new["mod"] = mod
-            _, wy = self.feats.wrist_xy(expr_hand.landmarks)
+            wx, wy = self.feats.wrist_xy(expr_hand.landmarks)
+            self.ema_space.update(clamp01((wx / hands.aspect - cfg.WRIST_X_DRY) / (cfg.WRIST_X_WET - cfg.WRIST_X_DRY)))
             self.ema_gain.update(clamp01((wy - cfg.WRIST_Y_QUIET) / (cfg.WRIST_Y_LOUD - cfg.WRIST_Y_QUIET)))
             self.ema_bright.update(clamp01((self.feats.pinch_norm(expr_hand.landmarks) - cfg.PINCH_MIN)
                                            / (cfg.PINCH_MAX - cfg.PINCH_MIN)))
-        else:                       # mod resets; volume and brightness hold
+        else:                       # mod resets; volume, brightness and space hold
             new["mod"] = "none"
             self.expr_fingers = None
             self.hold_mod = Hold(cfg.HOLD_FRAMES)   # re-entry must re-settle, not replay the old mod
 
         changed = new != self.state
         self.state = new
+        if changed:
+            s = new
+            self.voicing = [] if s["degree"] is None else chord_voicing(
+                s["key"], s["degree"], s["flipped"], s["mod"], cfg.ROOT_OCTAVE, self.voicing or None,
+                cfg.VOICE_LEADING, cfg.VOICING_RANGE, cfg.BASS_NOTE)
         return changed
 
     def freqs(self) -> list[float]:
-        s = self.state
-        return [] if s["degree"] is None else chord_freqs(s["key"], s["degree"], s["flipped"], s["mod"], cfg.ROOT_OCTAVE)
+        return [midi_to_hz(n) for n in self.voicing]
 
     def chord_name(self) -> str:
         s = self.state
@@ -100,7 +107,7 @@ class Instrument:
 
     def params(self) -> SynthParams:
         return SynthParams(gain=lerp(cfg.GAIN_RANGE, self.ema_gain.value), cutoff_hz=self.cutoff_hz,
-                           waveform=self.waveform)
+                           waveform=self.waveform, reverb=lerp(cfg.REVERB_MIX_RANGE, self.ema_space.value))
 
     def cycle_waveform(self):
         self.waveform = cfg.WAVEFORMS[(cfg.WAVEFORMS.index(self.waveform) + 1) % len(cfg.WAVEFORMS)]
@@ -193,6 +200,7 @@ def main(argv=None):
 
     ui_mode = args.ui
     flash, flash_until = None, 0.0
+    last_hands_t = -1e9               # when a hand was last in view (drives the empty-state hint)
     fps, last_t = 0.0, time.monotonic()
     try:
         while True:
@@ -210,6 +218,8 @@ def main(argv=None):
             synth.set_params(inst.params())
 
             now = time.monotonic()
+            if hands.hands():
+                last_hands_t = now
             fps = 0.9 * fps + 0.1 / max(1e-6, now - last_t)
             last_t = now
             s = inst.state
@@ -218,6 +228,7 @@ def main(argv=None):
                 chord_fingers=inst.chord_fingers, expr_fingers=inst.expr_fingers,
                 roll=inst.roll, zone=inst.hold_roll.value, gain=inst.ema_gain.value,
                 brightness=inst.ema_bright.value, cutoff_hz=inst.cutoff_hz, waveform=inst.waveform,
+                space=inst.ema_space.value, hint=now - last_hands_t > cfg.HINT_AFTER_S,
                 chord_hand=cfg.CHORD_HAND, expr_hand=cfg.EXPR_HAND,
                 fps=fps, xrun=synth.recent_xrun(), audio_error=synth.error, badges=badges,
                 flash=flash if now < flash_until else None,

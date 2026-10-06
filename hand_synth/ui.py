@@ -148,6 +148,8 @@ class OverlayState:
     waveform: str
     chord_hand: str
     expr_hand: str
+    space: float = 0.0                  # 0..1 position in REVERB_MIX_RANGE
+    hint: bool = False                  # no hands in view for a while: show how to start
     fps: float = 0.0
     xrun: bool = False
     audio_error: str | None = None
@@ -227,6 +229,8 @@ def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, 
         bx -= bw + 8
 
     hud_top = h - MARGIN - hud_height
+    if s.hint and mode != "clean":
+        _hint(frame, w // 2, (top + hud_top) // 2 if mode == "full" else h // 2)
     if mode == "full":
         _hud(frame, s, MARGIN, hud_top, w - MARGIN, h - MARGIN)
     flash_y = (hud_top if mode == "full" else h - MARGIN) - 46
@@ -238,7 +242,7 @@ def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, 
 
 def _chord_card(frame, s: OverlayState, x, y, detailed: bool):
     silent = s.degree is None
-    name = "–" if silent else s.chord
+    name = "Rest" if silent else s.chord
     parts = [f"Key of {s.key}", "silent" if silent else numeral(s.degree, s.flipped)]
     if not silent and s.flipped:
         parts.append("borrowed")
@@ -287,12 +291,22 @@ def _hud(frame, s: OverlayState, x0, y0, x1, y1):
     _meter(frame, cx[2], yt, mw, "VOLUME", s.gain, f"{s.gain * 100:.0f}%")
     _meter(frame, cx[2], yt + 44, mw, "BRIGHTNESS", s.brightness, f"{s.cutoff_hz:,.0f} Hz")
 
-    # Sound + help
-    _label(frame, "WAVE", cx[3], yt, TEXT_3)
-    draw_text(frame, f"{s.fps:.0f} fps", x1 - pad, yt - 1, 12, TEXT_3, anchor="rt")
-    draw_text(frame, s.waveform.capitalize(), cx[3], yt + 18, 20, TEXT, "medium")
-    draw_text(frame, "Click a key, or use the arrow keys", cx[3], yt + 50, 13, TEXT_3)
-    draw_text(frame, "H view   W wave   R record   Q quit", cx[3], yt + 68, 13, TEXT_3)
+    # Space + sound + help
+    _meter(frame, cx[3], yt, mw, "SPACE", s.space, f"{s.space * 100:.0f}%")
+    _label(frame, "WAVE", cx[3], yt + 44, TEXT_3)
+    draw_text(frame, s.waveform.capitalize(), cx[3] + mw, yt + 42, 14, TEXT, "medium", anchor="rt")
+    draw_text(frame, "H view   W wave   R record   Q quit", cx[3], yt + 64, 12, TEXT_3)
+    draw_text(frame, f"{s.fps:.0f} fps", cx[3] + mw, yt + 64, 12, TEXT_3, anchor="rt")
+
+
+def _hint(frame, cx, cy):
+    title, body = "Raise your hands", "Left hand picks the chord  ·  right hand shapes it"
+    tw, th = text_size(title, 34, "bold")
+    bw, bh = text_size(body, 17, "medium")
+    w, h = max(tw, bw) + 64, th + bh + 44
+    panel(frame, cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2, r=22)
+    draw_text(frame, title, cx, cy - h // 2 + 18, 34, TEXT, "bold", anchor="ct")
+    draw_text(frame, body, cx, cy - h // 2 + 26 + th, 17, TEXT_2, "medium", anchor="ct")
 
 
 def _label(frame, s, x, y, color):

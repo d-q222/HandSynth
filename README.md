@@ -53,6 +53,7 @@ Options:
 | | thumb | add6 |
 | | raise / lower the hand | louder / quieter |
 | | open / close the thumb–index pinch | brighter / darker |
+| | move the hand outward / inward | more / less reverb ("space") |
 
 Click a key along the top bar to change the key; `←`/`→` do the same.
 Other keys:
@@ -102,6 +103,21 @@ The fixtures live under `fixtures/landmarks/`, one JSON file per hand:
 | `recorded/` | What `r` saves from your own camera. The filename and `expected.fingers` come from the stand-in's reading at that moment, so **check each one and rename it if the stand-in misread your hand.** |
 
 Recording ~15 poses per hand plus a few rolled poses is the best test of your `fingers_up()`. It's also the starting dataset for the later classifier (`gesture.ClassifierSource`).
+
+## Sound
+
+The synth turns the chord into a warm pad you can sing over. All of it runs in numpy with no
+extra audio stack, taking about 0.1 ms of CPU per 5.8 ms audio block.
+
+- **Voice leading.** Each new chord is re-voiced so its notes move as little as possible from the
+  last chord. Common tones are held (C → Am keeps C and E), so changes glide instead of jumping as a block.
+  The voiced notes stay inside `VOICING_RANGE`, and `VOICE_LEADING = False` turns this off.
+- **Bass.** The root an octave below sits under every chord. `BASS_NOTE = False` removes it.
+- **Unison.** Each note is two oscillators detuned by ±`DETUNE_CENTS`, for a slow chorus shimmer.
+- **Reverb.** A Freeverb-style room (`REVERB_ROOM`, `REVERB_DAMP`). Its mix follows the right
+  hand's horizontal position, within `REVERB_MIX_RANGE`.
+- **Click-free.** Every chord change is a crossfade between per-voice envelopes. Gain, cutoff, reverb and
+  waveform changes are all ramped. The offline tests check each of these for clicks.
 
 ## Coordinates
 
@@ -169,3 +185,5 @@ The suite covers:
 | Chords flicker | Raise `HOLD_FRAMES`. If they feel sluggish, lower it. |
 | Major/minor flips too easily or not at all | Tune `ROLL_MINOR_DEG` and `ROLL_DEADBAND_DEG`. The HUD shows the live roll angle. |
 | Volume range feels off | Tune `WRIST_Y_QUIET` / `WRIST_Y_LOUD`, the wrist heights for silent and full. |
+| Too much / too little reverb | Tune `REVERB_MIX_RANGE` (and `WRIST_X_DRY` / `WRIST_X_WET`), or `REVERB_ROOM` for a longer or shorter tail. |
+| Chords sound muddy on laptop speakers | Set `BASS_NOTE = False`, or raise `ROOT_OCTAVE` / `VOICING_RANGE`. |

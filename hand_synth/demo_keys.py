@@ -7,7 +7,7 @@ import numpy as np
 from . import config as cfg
 from . import ui
 from .keycodes import arrow
-from .music import chord_freqs, chord_name
+from .music import chord_name, chord_voicing, midi_to_hz
 from .synth.base import SynthParams
 from .synth.numpy_synth import NumpySynth
 
@@ -59,6 +59,7 @@ def main():
     gain, cutoff = 0.5 * cfg.GAIN_RANGE[1], 2000.0
     wave_i = cfg.WAVEFORMS.index(cfg.WAVEFORM)
     last = None
+    voicing = []
     params_dirty = True
     win = cfg.WINDOW_NAME + " - keys"
     img = np.zeros((SIZE[1], SIZE[0], 3), np.uint8)
@@ -73,7 +74,10 @@ def main():
             key = cfg.KEY_NAMES[key_i]
             state = (key, degree, flipped, mod)
             if state != last:
-                synth.set_chord([] if degree is None else chord_freqs(key, degree, flipped, mod, cfg.ROOT_OCTAVE))
+                voicing = [] if degree is None else chord_voicing(
+                    key, degree, flipped, mod, cfg.ROOT_OCTAVE, voicing or None,
+                    cfg.VOICE_LEADING, cfg.VOICING_RANGE, cfg.BASS_NOTE)
+                synth.set_chord([midi_to_hz(n) for n in voicing])
                 last = state
             if params_dirty:
                 synth.set_params(SynthParams(gain, cutoff, cfg.WAVEFORMS[wave_i]))

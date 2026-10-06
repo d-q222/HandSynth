@@ -96,3 +96,85 @@ def test_errors():
         music.chord_midi("C", 1, mod="add13")
     with pytest.raises(ValueError):
         music.chord_name("C", 1, False, "nope")
+
+
+# ---- voice leading ----
+import random
+
+RANGE = (45, 69)
+
+
+def _walk(key, degs, **kw):
+    prev, out = None, []
+    for d in degs:
+        prev = music.chord_voicing(key, d, False, "none", 3, prev, True, RANGE, kw.get("bass", False))
+        out.append(prev)
+    return out
+
+
+def test_cold_start_close_position():
+    assert music.chord_voicing("C", 1, False, "none", 3, None, True, RANGE, False) == [48, 52, 55]
+    assert music.voice_lead([59, 63, 66], None, 45, 69) == [59, 63, 66]
+    assert music.voice_lead([48, 52, 55], [], 60, 72) == [60, 64, 67]
+
+
+def test_c_f_g_c_smooth_and_in_range():
+    v = _walk("C", [1, 4, 5, 1])
+    for a, b in zip(v, v[1:]):
+        assert all(min(abs(n - p) for p in a) <= 5 for n in b)
+        assert all(min(abs(n - p) for n in b) <= 5 for p in a)
+    for chord in v:
+        assert all(RANGE[0] <= n <= RANGE[1] for n in chord)
+    assert 60 in v[1] or 48 in v[1]          # C kept in F
+
+
+def test_common_tones_kept():
+    c = music.chord_voicing("C", 1, False, "none", 3, None, True, RANGE, False)
+    f = music.chord_voicing("C", 4, False, "none", 3, c, True, RANGE, False)
+    am = music.chord_voicing("C", 6, False, "none", 3, c, True, RANGE, False)
+    assert set(c) & set(f) == {48}
+    assert set(c) & set(am) == {48, 52}
+
+
+def test_pitch_classes_preserved_all():
+    rng = random.Random(1)
+    for key in config.KEY_NAMES:
+        for d in range(1, 8):
+            for mod in music.MODS:
+                base = music.chord_midi(key, d, False, mod, 3)
+                prev = sorted(rng.sample(range(45, 70), rng.randint(3, 5)))
+                out = music.voice_lead(base, prev, *RANGE)
+                assert sorted(n % 12 for n in out) == sorted(n % 12 for n in base)
+                assert out == sorted(out) and all(RANGE[0] <= n <= RANGE[1] for n in out)
+                assert out == music.voice_lead(base, prev, *RANGE)
+                cold = music.voice_lead(base, None, *RANGE)
+                assert sorted(n % 12 for n in cold) == sorted(n % 12 for n in base)
+                assert all(RANGE[0] <= n <= RANGE[1] for n in cold)
+
+
+def test_passthrough_when_off():
+    for key in ("C", "F#", "B"):
+        for d in range(1, 8):
+            for mod in music.MODS:
+                assert (music.chord_voicing(key, d, True, mod, 3, [50, 55], False, RANGE, False)
+                        == music.chord_midi(key, d, True, mod, 3))
+
+
+def test_bass():
+    assert music.with_bass([48, 52, 55], 48) == [36, 48, 52, 55]
+    for key in config.KEY_NAMES:
+        for d in range(1, 8):
+            for vl in (False, True):
+                out = music.chord_voicing(key, d, False, "add9", 3, None, vl, RANGE, True)
+                root = music.chord_midi(key, d, False, "add9", 3)[0]
+                assert (root - out[0]) % 12 == 0 and out[0] <= root - 12
+                assert out[0] < out[1]
+    # prev with bass is stripped before voice leading
+    a = music.chord_voicing("C", 1, False, "none", 3, None, True, RANGE, True)
+    b = music.chord_voicing("C", 4, False, "none", 3, a, True, RANGE, True)
+    assert b[0] == 41 and b[1:] == music.chord_voicing("C", 4, False, "none", 3, a[1:], True, RANGE, False)
+
+
+def test_narrow_range_widened_not_crash():
+    out = music.voice_lead([48, 52, 55, 62], [50], 50, 55)
+    assert sorted(n % 12 for n in out) == [0, 2, 4, 7]

@@ -122,3 +122,87 @@ def test_import_without_audio_device():
     s.stop()
     s.stop()
     assert s.error is None and not s.recent_xrun()
+
+
+# ---- reverb / detune --------------------------------------------------------
+import time
+from types import SimpleNamespace
+
+
+def cfg_with(**kw):
+    return SimpleNamespace(**{**{k: getattr(cfg, k) for k in dir(cfg) if k.isupper()}, **kw})
+
+
+def test_reverb_tail_after_release_and_decays():
+    rel = 20 + int(cfg.RELEASE_S * cfg.SAMPLE_RATE / B) + 3
+    for rv, ring in ((0.6, True), (0.0, False)):
+        s = mk(reverb=rv)
+        s.set_chord(C)
+        x = render(s, 20 + 800, lambda: s.set_chord([]), at=20)
+        sane(x)
+        tail = x[rel * B:(rel + 40) * B]
+        if ring:
+            assert np.abs(tail).max() > 1e-3
+            assert np.abs(x[-20 * B:]).max() == 0.0          # true silence within ~4 s
+        else:
+            assert np.abs(tail).max() < 1e-4
+
+
+def test_reverb_change_click_free():
+    for new in (0.0, 0.6):
+        s = mk(reverb=0.3 if new == 0.6 else 0.6)
+        s.set_chord(C)
+        x = render(s, 50, lambda: s.set_params(SynthParams(0.6, 3000.0, "triangle", new)), at=20)
+        sane(x)
+        no_spike(x, 20)
+
+
+def test_no_clip_loud_chord_with_reverb():
+    s = mk(gain=0.8, reverb=0.6)
+    s.set_chord(C + [246.94, 293.66])
+    x = s.render_offline(400)
+    assert np.abs(x).max() < 0.999, np.abs(x).max()
+
+
+def _spectrum(cents):
+    s = NumpySynth(cfg_with(DETUNE_CENTS=cents))
+    s.set_params(SynthParams(0.8, 8000.0, "sine"))
+    s.set_chord([440.0])
+    x = s.render_offline(400)[100 * B:].astype(np.float64)
+    sp = np.abs(np.fft.rfft(x * np.hanning(len(x)), len(x) * 8))
+    return sp, np.fft.rfftfreq(len(x) * 8, 1 / cfg.SAMPLE_RATE)
+
+
+def test_detune_spectrum():
+    cents = 40.0
+    lo, hi = 440 * 2 ** (-cents / 1200), 440 * 2 ** (cents / 1200)
+    sp, f = _spectrum(cents)
+    m = sp.max()
+    band = lambda a, b: sp[(f > a) & (f < b)].max()
+    assert band(lo - 0.5, lo + 0.5) > 0.9 * m and band(hi - 0.5, hi + 0.5) > 0.9 * m
+    assert band(439.0, 441.0) < 0.1 * m
+    sp0, f0 = _spectrum(0.0)
+    assert abs(f0[sp0.argmax()] - 440.0) < 0.3
+    assert sp0[(f0 > 443.0) & (f0 < 2000)].max() < 0.01 * sp0.max()
+    assert sp0[(f0 < 437.0) & (f0 > 20)].max() < 0.01 * sp0.max()
+
+
+def test_detune_zero_is_single_oscillator():
+    s = NumpySynth(cfg_with(DETUNE_CENTS=0.0))
+    s.set_chord(C)
+    s.render_offline(3)
+    assert s._ratios == ()
+
+
+def test_block_render_time():
+    s = mk(reverb=0.6)
+    s.set_chord(C + [246.94, 293.66])
+    s.render_offline(50)
+    ts = []
+    for _ in range(300):
+        t = time.perf_counter()
+        s._render_block()
+        ts.append(time.perf_counter() - t)
+    med = float(np.median(ts)) * 1e3
+    print(f"median ms/block: {med:.3f}")
+    assert med < 1.5, med

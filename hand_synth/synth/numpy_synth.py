@@ -1,4 +1,4 @@
-"""Additive numpy synth: ADSR voices -> smoothed-normalised mix -> 2-pole LPF -> gain.
+"""Additive numpy synth: ADSR unison voices -> smoothed-normalised mix -> 2-pole LPF -> reverb -> gain.
 
 Threading: one SynthTarget behind one Lock. The audio callback copies it, releases
 the lock, then renders. Voices are owned by the render side only.
@@ -24,11 +24,12 @@ class SynthTarget:
 
 
 class _Voice:
-    __slots__ = ("freq", "phase", "level", "releasing")
+    __slots__ = ("freq", "phase", "ph_u", "level", "releasing")
 
     def __init__(self, freq):
         self.freq = freq
-        self.phase = 0.0
+        self.phase = 0.0        # nominal-frequency phase (bookkeeping; drives the single-oscillator path)
+        self.ph_u = [0.0, 2.1]  # unison oscillator phases, started apart so they don't peak together
         self.level = 0.0
         self.releasing = False
 
@@ -39,6 +40,39 @@ def _shape(name, ph):
     if name == "saw":
         return np.mod(ph, TWO_PI) / math.pi - 1.0
     return (2.0 / math.pi) * np.arcsin(np.sin(ph))      # triangle (default)
+
+
+_COMB_DELAYS = (1116, 1188, 1277, 1356)     # Freeverb tunings @44.1k, scaled to the sample rate
+_ALLPASS_DELAYS = (556, 441)
+_COMB_SUM_GAIN = 0.25
+_FLUSH = 1e-9
+
+
+class _Ring:
+    """Delay line of fixed length d >= block: read the block written d samples ago, then overwrite it."""
+    __slots__ = ("buf", "d", "w")
+
+    def __init__(self, d):
+        self.buf = np.zeros(d)
+        self.d = d
+        self.w = 0
+
+    def read(self, n):
+        a = self.buf[self.w:self.w + n]
+        if len(a) == n:
+            return a.copy()
+        return np.concatenate((a, self.buf[:n - len(a)]))
+
+    def write(self, x):
+        n = len(x)
+        k = min(n, self.d - self.w)
+        self.buf[self.w:self.w + k] = x[:k]
+        if k < n:
+            self.buf[:n - k] = x[k:]
+        self.w = (self.w + n) % self.d
+
+    def clear(self):
+        self.buf[:] = 0.0
 
 
 class NumpySynth:
@@ -71,6 +105,19 @@ class NumpySynth:
         self._fc = p.cutoff_hz
         self._zi = [np.zeros(1), np.zeros(1)]
         self._fade = 1.0
+        self._ratios = ()
+        c = float(getattr(cfg, "DETUNE_CENTS", 0.0))
+        if c > 0:
+            self._ratios = (2.0 ** (-c / 1200.0), 2.0 ** (c / 1200.0))
+        # reverb: delays must be >= block so each block only reads samples from earlier blocks
+        sc = self.sr / 44100.0
+        self._combs = [_Ring(max(self.block, int(round(d * sc)))) for d in _COMB_DELAYS]
+        self._aps = [_Ring(max(self.block, int(round(d * sc)))) for d in _ALLPASS_DELAYS]
+        self._fb = min(max(float(getattr(cfg, "REVERB_ROOM", 0.84)), 0.0), 0.95)
+        self._damp = min(max(float(getattr(cfg, "REVERB_DAMP", 0.4)), 0.0), 0.99)
+        self._comb_zi = [np.zeros(1) for _ in self._combs]
+        self._wet_s = p.reverb
+        self._wet_prev = p.reverb
 
     # ---- public API -------------------------------------------------------
     def set_chord(self, freqs):
@@ -149,6 +196,32 @@ class NumpySynth:
             if k not in self._voices:
                 self._voices[k] = _Voice(f)
 
+    def _reverb(self, x, wet_target, ramp):
+        """4 parallel damped combs -> 2 series allpasses, vectorised (all delays >= block)."""
+        self._wet_s += (min(max(wet_target, 0.0), 1.0) - self._wet_s) * self._gain_k
+        wet = self._wet_prev + (self._wet_s - self._wet_prev) * ramp
+        self._wet_prev = self._wet_s
+        d = self._damp
+        acc = None
+        for i, c in enumerate(self._combs):
+            o = c.read(self.block)
+            f, self._comb_zi[i] = lfilter([1.0 - d], [1.0, -d], o, zi=self._comb_zi[i])
+            c.write(x + f * self._fb)
+            acc = o if acc is None else acc + o
+        acc *= _COMB_SUM_GAIN
+        for a in self._aps:
+            o = a.read(self.block)
+            a.write(acc + 0.5 * o)
+            acc = o - acc
+        if np.abs(x).max() < _FLUSH and all(np.abs(r.buf).max() < _FLUSH for r in self._combs + self._aps):
+            # tail gone: true silence, no denormals
+            for r in self._combs + self._aps:
+                r.clear()
+            for z in self._comb_zi:
+                z[:] = 0.0
+            acc = np.zeros_like(acc)
+        return x * (1.0 - 0.5 * wet) + acc * wet
+
     def _render_block(self):
         with self._lock:
             freqs, p, fading = self._target.freqs, self._target.params, self._target.fading
@@ -173,13 +246,26 @@ class NumpySynth:
             rate = -self._rel if v.releasing else self._att
             env = v.level + rate * k
             np.clip(env, 0.0, 1.0, out=env)
-            ph = v.phase + (TWO_PI * v.freq / self.sr) * self._n
-            sig = _shape(self._wave, ph)
-            if xfade:
-                sig = sig * (1.0 - ramp) + _shape(new_wave, ph) * ramp
+            w0 = TWO_PI * v.freq / self.sr
+            if self._ratios:
+                sig = None
+                for j, r in enumerate(self._ratios):
+                    ph = v.ph_u[j] + (w0 * r) * self._n
+                    s_ = _shape(self._wave, ph)
+                    if xfade:
+                        s_ = s_ * (1.0 - ramp) + _shape(new_wave, ph) * ramp
+                    sig = s_ if sig is None else sig + s_
+                    v.ph_u[j] = (v.ph_u[j] + w0 * r * n) % TWO_PI
+                sig *= 0.5
+                v.phase = (v.phase + w0 * n) % TWO_PI
+            else:
+                ph = v.phase + w0 * self._n
+                sig = _shape(self._wave, ph)
+                if xfade:
+                    sig = sig * (1.0 - ramp) + _shape(new_wave, ph) * ramp
+                v.phase = (v.phase + w0 * n) % TWO_PI
             mix += env * sig
             levels += env
-            v.phase = (v.phase + (TWO_PI * v.freq / self.sr) * n) % TWO_PI
             v.level = float(env[-1])
             if v.releasing and v.level <= 0.0:
                 dead.append(key)
@@ -200,6 +286,8 @@ class NumpySynth:
         den = [1.0, -(1.0 - a)]
         y, self._zi[0] = lfilter([a], den, mix, zi=self._zi[0])
         y, self._zi[1] = lfilter([a], den, y, zi=self._zi[1])
+
+        y = self._reverb(y, p.reverb, ramp)
 
         # gain: smoothed target, linear ramp across the block
         self._gain_s += (p.gain - self._gain_s) * self._gain_k

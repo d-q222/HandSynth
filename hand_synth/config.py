@@ -88,4 +88,5 @@ KEYBAR_HEIGHT = 44              # px, 12 key buttons across the top of the frame
 UI_MODE = "full"                # "full" | "minimal" | "clean"   (cycle live with 'h')
 UI_MODES = ["full", "minimal", "clean"]
 HUD_HEIGHT = 112                # px, translucent info strip along the bottom of the frame
+HINT_AFTER_S = 1.5              # show "raise your hands" after this long with no hands in view
 FLASH_S = 1.5                   # how long transient messages ("saved fixture") stay on screen
