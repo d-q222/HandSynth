@@ -15,7 +15,7 @@ import cv2
 from . import config as cfg
 from . import keycodes, standins
 from .gesture import KEEP, FingerMapSource
-from .music import chord_name, chord_voicing, midi_to_hz
+from .music import MODS, chord_name, chord_voicing, midi_to_hz
 from .stabilize import EMA, Hold, RollZone
 from .synth import SynthParams
 from .tracking import REPO_ROOT, HandsFrame
@@ -31,6 +31,40 @@ def lerp(rng: tuple[float, float], t: float) -> float:
 
 def logmap(rng: tuple[float, float], t: float) -> float:
     return rng[0] * (rng[1] / rng[0]) ** t
+
+
+def check_config(c=cfg) -> list[str]:
+    """Problems in config.py that would otherwise only surface mid-performance (e.g. a typo in MOD_MAP)."""
+    errs = []
+
+    def finger_key(name, k):
+        if not (isinstance(k, tuple) and len(k) == 5 and all(isinstance(b, bool) for b in k)):
+            errs.append(f"{name} key {k!r} must be a tuple of 5 True/False values (thumb, index, middle, ring, pinky)")
+
+    for k, v in c.FINGER_MAP.items():
+        finger_key("FINGER_MAP", k)
+        if v is not None and v not in range(1, 8):
+            errs.append(f"FINGER_MAP{k}: {v!r} must be a scale degree 1-7 or None (silence)")
+    for k, v in c.MOD_MAP.items():
+        finger_key("MOD_MAP", k)
+        if v not in MODS:
+            errs.append(f"MOD_MAP{k}: {v!r} is not one of {sorted(MODS)}")
+    for name, value, allowed in (("KEY", c.KEY, c.KEY_NAMES), ("WAVEFORM", c.WAVEFORM, c.WAVEFORMS),
+                                 ("UI_MODE", c.UI_MODE, c.UI_MODES), ("CHORD_HAND", c.CHORD_HAND, ("Left", "Right")),
+                                 ("EXPR_HAND", c.EXPR_HAND, ("Left", "Right"))):
+        if value not in allowed:
+            errs.append(f"{name} = {value!r} must be one of {list(allowed)}")
+    if c.CHORD_HAND == c.EXPR_HAND:
+        errs.append("CHORD_HAND and EXPR_HAND must be different hands")
+    for name in ("CUTOFF_HZ", "GAIN_RANGE", "REVERB_MIX_RANGE", "VOICING_RANGE"):
+        lo, hi = getattr(c, name)
+        if not lo < hi:
+            errs.append(f"{name} = {(lo, hi)} must be (low, high) with low < high")
+    if not c.PINCH_MIN < c.PINCH_MAX:
+        errs.append("PINCH_MIN must be < PINCH_MAX")
+    if c.WRIST_Y_QUIET == c.WRIST_Y_LOUD or c.WRIST_X_DRY == c.WRIST_X_WET:
+        errs.append("WRIST_Y_QUIET/LOUD and WRIST_X_DRY/WET must differ")
+    return errs
 
 
 class Instrument:
@@ -172,6 +206,8 @@ def main(argv=None):
     from .ui import KeyBar, OverlayState, draw_overlay
 
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    if errs := check_config():
+        sys.exit("hand-synth: fix hand_synth/config.py:\n  - " + "\n  - ".join(errs))
 
     fingers_fn, fingers_status = standins.resolve_fingers()
     feats, feature_status = standins.resolve_features()

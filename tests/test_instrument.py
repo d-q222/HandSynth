@@ -166,3 +166,22 @@ def test_progression_is_voice_led(inst):
         if prev:
             assert max(min(abs(a - b) for b in prev) for a in upper) <= 5
         prev = upper
+
+
+def test_shipped_config_is_valid():
+    from hand_synth.main import check_config
+    assert check_config() == []
+
+
+def test_config_typos_are_caught():
+    from types import SimpleNamespace
+    from hand_synth.main import check_config
+    bad = SimpleNamespace(**{k: getattr(cfg, k) for k in dir(cfg) if k.isupper()})
+    bad.MOD_MAP = {**cfg.MOD_MAP, (True, False, False, False, True): "add11"}
+    bad.FINGER_MAP = {**cfg.FINGER_MAP, (True, True): 3, OPEN: 8}
+    bad.EXPR_HAND = "Left"
+    errs = check_config(bad)
+    assert any("add11" in e for e in errs)
+    assert any("(True, True)" in e for e in errs)
+    assert any("8" in e and "FINGER_MAP" in e for e in errs)
+    assert any("different hands" in e for e in errs)
