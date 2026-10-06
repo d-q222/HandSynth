@@ -201,3 +201,11 @@ def test_space_grows_outward_for_either_expression_hand(monkeypatch, expr):
             inst.update(HandsFrame(left=hand if expr == "Left" else None, right=hand if expr == "Right" else None))
         return inst.params().reverb
     assert space_at(0.85) > space_at(0.15)
+
+
+def test_fit_width_keeps_aspect():
+    import numpy as np
+    from hand_synth.main import fit_width
+    assert fit_width(np.zeros((1080, 1920, 3), np.uint8), 1280).shape == (720, 1280, 3)
+    f = np.zeros((720, 1280, 3), np.uint8)
+    assert fit_width(f, 1280) is f

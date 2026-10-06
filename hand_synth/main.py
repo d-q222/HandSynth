@@ -172,6 +172,15 @@ def dump_fixture(hands: HandsFrame, fingers_fn, roll_fn) -> list[Path]:
     return paths
 
 
+def fit_width(frame, width: int):
+    """Scale a frame to `width` px wide (keeping aspect) so the window fits on a laptop screen
+    whatever resolution the camera actually delivers."""
+    h, w = frame.shape[:2]
+    if w == width:
+        return frame
+    return cv2.resize(frame, (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
+
+
 def parse_args(argv):
     p = argparse.ArgumentParser(prog="hand-synth", description="Webcam chord instrument.")
     p.add_argument("--camera", default=str(cfg.CAMERA_INDEX),
@@ -221,6 +230,7 @@ def main(argv=None):
         print(f"  {name:15s} {status}")
 
     cap, frame = open_camera(args.camera)
+    print(f"  camera          {frame.shape[1]}x{frame.shape[0]} -> window width {cfg.CAMERA_SIZE[0]}")
     synth = NumpySynth(cfg)
     try:
         synth.start()
@@ -245,6 +255,7 @@ def main(argv=None):
                 ok, frame = cap.read()
                 if not ok:
                     break
+            frame = fit_width(frame, cfg.CAMERA_SIZE[0])
             if cfg.MIRROR:
                 frame = cv2.flip(frame, 1)
             hands = tracker.process(frame)
