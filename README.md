@@ -32,6 +32,22 @@ Options:
 - `--ui minimal` sets the starting overlay mode.
 - `--camera 1` picks another camera, and `--camera clip.mp4` plays a recorded video instead.
 
+## Opening it
+
+Run this once from the repo:
+
+```bash
+scripts/install_launchers.sh
+```
+
+It sets up `.venv` if needed and installs two launchers that point at this checkout:
+
+- **Hand Synth.app** in `~/Applications`. Open it from Spotlight (⌘-Space, "Hand Synth"), Launchpad or the Dock.
+  The first time, macOS asks whether *Hand Synth* may use the camera. Output goes to `~/Library/Logs/HandSynth.log`.
+- **`hand-synth`**, a command that works from any terminal: `hand-synth --key G --ui minimal`.
+
+Re-run the script if you move the repo.
+
 ## How to play
 
 | Hand | Gesture | Effect |
