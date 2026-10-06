@@ -51,6 +51,7 @@ def check_config(c=cfg) -> list[str]:
             errs.append(f"MOD_MAP{k}: {v!r} is not one of {sorted(MODS)}")
     for name, value, allowed in (("KEY", c.KEY, c.KEY_NAMES), ("WAVEFORM", c.WAVEFORM, c.WAVEFORMS),
                                  ("UI_MODE", c.UI_MODE, c.UI_MODES), ("CHORD_HAND", c.CHORD_HAND, ("Left", "Right")),
+                                 ("HANDEDNESS", c.HANDEDNESS, ("position", "mediapipe")),
                                  ("EXPR_HAND", c.EXPR_HAND, ("Left", "Right"))):
         if value not in allowed:
             errs.append(f"{name} = {value!r} must be one of {list(allowed)}")
@@ -237,7 +238,8 @@ def main(argv=None):
     except RuntimeError as e:
         cap.release()
         sys.exit(f"hand-synth: {e}")
-    tracker = Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF)
+    tracker = Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF,
+                      cfg.HANDEDNESS)
 
     inst = Instrument(fingers_fn, feats, key=args.key)
     pending = {"key": None}           # set by the mouse callback (runs inside waitKey), applied next frame

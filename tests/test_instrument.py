@@ -124,8 +124,21 @@ def test_waveform_cycles(inst):
 def test_tracker_assign_breaks_duplicate_labels():
     a = Hand("Right", make_hand(OPEN, "Left", center=(0.4, 0.5)), 0.9)
     b = Hand("Right", make_hand(OPEN, "Right", center=(1.3, 0.5)), 0.9)
-    hf = _assign([b, a], 16 / 9)
+    hf = _assign([b, a], 16 / 9, "mediapipe")
     assert hf.left is a and hf.right is b
+
+
+def test_position_handedness_ignores_classifier_labels():
+    aspect = 16 / 9
+    a = Hand("Right", make_hand(OPEN, "Left", center=(0.4, 0.5)), 0.9)    # classifier says Right; it's screen-left
+    b = Hand("Left", make_hand(OPEN, "Right", center=(1.3, 0.5)), 0.9)
+    hf = _assign([b, a], aspect)
+    assert hf.left is a and hf.right is b
+    lone = Hand("Left", make_hand(OPEN, "Right", center=(1.5, 0.5)), 0.9)
+    assert _assign([lone], aspect).right is lone
+    near_mid = Hand("Right", make_hand(OPEN, "Left", center=(aspect / 2 + 0.03, 0.5)), 0.9)
+    assert _assign([near_mid], aspect, last_single="Left").left is near_mid     # dead band keeps the role
+    assert _assign([near_mid], aspect).right is near_mid
 
 
 def test_dump_fixture_never_overwrites(tmp_path, monkeypatch):

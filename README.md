@@ -71,6 +71,10 @@ Other behaviour:
 - **Unknown gestures** keep the current chord, so moving between two shapes never dips to silence.
 - **Losing the left hand** keeps the chord sounding; make a fist to stop it.
 - **When the right hand leaves**, the modification resets to none, but volume and brightness hold.
+- **Which hand is which comes from where it is on screen**, not from MediaPipe's left/right
+  classifier, whose labels depend on mirroring and hand orientation. With two hands, the one on
+  the screen's left plays chords. A single hand counts as Left or Right by which half of the frame
+  it's in, with a small dead band at the centre. `HANDEDNESS = "mediapipe"` switches back to the classifier.
 - **Every gesture mapping lives in [`hand_synth/config.py`](hand_synth/config.py)** (`FINGER_MAP`, `MOD_MAP`), along with every other tunable. To redesign the instrument, edit that file.
 
 ## The hand-written parts: stand-ins until they exist
@@ -99,7 +103,7 @@ The fixtures live under `fixtures/landmarks/`, one JSON file per hand:
 | Folder | Contents |
 |---|---|
 | `synthetic/` | Generated hands: all 32 finger states × both hands × roll/scale/noise variations, plus roll poses. Regenerate with `python scripts/make_synthetic_fixtures.py`. |
-| `real/` | Landmarks from MediaPipe's public sample images, labels checked by eye. |
+| `real/` | Landmarks from MediaPipe's public test photos (some rotated or upside down), with fingers checked by eye. These only validate the stand-in. The labels come from the tracker, so they are **not** part of your `fingers_up()` gate. |
 | `recorded/` | What `r` saves from your own camera. The filename and `expected.fingers` come from the stand-in's reading at that moment, so **check each one and rename it if the stand-in misread your hand.** |
 
 Recording ~15 poses per hand plus a few rolled poses is the best test of your `fingers_up()`. It's also the starting dataset for the later classifier (`gesture.ClassifierSource`).
@@ -166,7 +170,7 @@ The suite covers:
 
 ## Acceptance checklist (live, PRD C8)
 
-- [ ] Hold up only your **right** hand: the overlay labels it `Right`. If the labels are swapped, change `MIRROR` or the `CHORD_HAND`/`EXPR_HAND` settings in config.
+- [ ] Hold up only your **right** hand, on the right of the screen: the overlay labels it `Right` and tags it SHAPE.
 - [ ] Select key **G**. Left open hand plays G; left index alone plays Am.
 - [ ] Roll the left hand ~45° to get A (flipped); back upright gives Am.
 - [ ] Right index + middle gives Asus4; right index + middle + ring gives Am7.
@@ -188,6 +192,7 @@ Every deviation is deliberate. Each one is listed here so the spec and the code 
 | Divide the mix by voice count | Normalized by max(smoothed held count, summed envelopes) | Avoids level jumps and keeps full attack and release shapes. |
 | v1 sound: oscillators, LPF, gain | Adds unison detune, reverb, voice leading and a bass note | PRD C10's "revisit" items, for a fuller accompaniment pad. |
 | Expression-hand wrist-x unused | Drives reverb mix ("space") | PRD C10's first candidate control. |
+| Left/Right from MediaPipe handedness | From screen position (`HANDEDNESS = "position"`) | The classifier's labels changed with mirroring and rotation on real test photos. Position is predictable. |
 | `demo_keys`: 7/9/6 toggle mods | J/K/L toggle add7/add9/add6 | 7 and 6 already select chord degrees. |
 | — | `h` view modes, empty-state hint, startup config validation | UX and robustness. |
 
@@ -199,6 +204,7 @@ Every deviation is deliberate. Each one is listed here so the spec and the code 
 | `Audio output failed` | The message lists your devices. Set `AUDIO_DEVICE` in config to one of them. |
 | Red **XRUN** badge | The audio buffer is underrunning. Raise `BLOCK_SIZE` to 512. |
 | Chords flicker | Raise `HOLD_FRAMES`. If they feel sluggish, lower it. |
+| Hands get the wrong roles | Keep each hand on its own side of the screen. A lone hand switches role when it crosses the centre line. To swap which side plays chords, swap `CHORD_HAND` / `EXPR_HAND`. |
 | Major/minor flips too easily or not at all | Tune `ROLL_MINOR_DEG` and `ROLL_DEADBAND_DEG`. The HUD shows the live roll angle. |
 | Volume range feels off | Tune `WRIST_Y_QUIET` / `WRIST_Y_LOUD`, the wrist heights for silent and full. |
 | Too much / too little reverb | Tune `REVERB_MIX_RANGE` (and `WRIST_X_DRY` / `WRIST_X_WET`), or `REVERB_ROOM` for a longer or shorter tail. |

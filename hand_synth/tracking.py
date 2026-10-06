@@ -54,7 +54,10 @@ def ensure_model(model_path: str, url: str) -> Path:
 
 
 class Tracker:
-    def __init__(self, model_path: str, model_url: str, max_hands=2, min_conf=0.6, min_tracking_conf=0.5):
+    def __init__(self, model_path: str, model_url: str, max_hands=2, min_conf=0.6, min_tracking_conf=0.5,
+                 handedness="position"):
+        self.handedness = handedness
+        self._last_single = None        # label of the last lone hand (midline dead band)
         opts = vision.HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(ensure_model(model_path, model_url))),
             running_mode=vision.RunningMode.VIDEO,
@@ -78,16 +81,38 @@ class Tracker:
         for lms, handed in zip(res.hand_landmarks, res.handedness):
             pts = [(p.x * aspect, p.y, p.z * aspect) for p in lms]
             found.append(Hand(label=handed[0].category_name, landmarks=pts, score=handed[0].score))
-        return _assign(found, aspect)
+        hf = _assign(found, aspect, self.handedness, self._last_single)
+        if len(found) == 1:
+            self._last_single = found[0].label
+        return hf
 
     def close(self):
         self._landmarker.close()
 
 
-def _assign(found: list[Hand], aspect: float) -> HandsFrame:
-    """Place hands into left/right slots. MediaPipe occasionally labels both hands the same;
-    in a mirrored view the user's left hand is on image-left, so break ties by wrist x."""
-    if len(found) == 2 and found[0].label == found[1].label:
+MIDLINE_DEADBAND = 0.06    # fraction of frame width around the centre where a lone hand keeps its label
+
+
+def _assign(found: list[Hand], aspect: float, handedness: str = "position", last_single=None) -> HandsFrame:
+    """Place hands into left/right slots.
+
+    "position" (default): in a mirrored view the user's left hand is on image-left, so two hands are
+    labelled by wrist x and a single hand by which half of the frame it is in (keeping `last_single`
+    inside a small dead band around the midline, so a lone hand can't flicker roles). Independent of
+    MediaPipe's handedness classifier, whose labels depend on mirroring and hand orientation.
+    "mediapipe": trust MediaPipe's labels; if both hands get the same label, break the tie by wrist x.
+    """
+    if handedness == "position":
+        if len(found) == 2:
+            a, b = sorted(found, key=lambda hd: hd.landmarks[0][0])
+            a.label, b.label = "Left", "Right"
+        elif len(found) == 1:
+            x = found[0].landmarks[0][0] / aspect - 0.5
+            if last_single and abs(x) < MIDLINE_DEADBAND:
+                found[0].label = last_single
+            else:
+                found[0].label = "Left" if x < 0 else "Right"
+    elif len(found) == 2 and found[0].label == found[1].label:
         a, b = sorted(found, key=lambda hd: hd.landmarks[0][0])
         a.label, b.label = "Left", "Right"
     left = next((hd for hd in found if hd.label == "Left"), None)

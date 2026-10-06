@@ -12,6 +12,7 @@ KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 CHORD_HAND = "Left"             # which handedness label plays chords
 EXPR_HAND = "Right"
 MIRROR = True                   # flip frame so it behaves like a mirror (and labels match real hands)
+HANDEDNESS = "position"         # "position": screen-left hand = Left (robust) | "mediapipe": trust the classifier
 
 # finger tuple order: (thumb, index, middle, ring, pinky). True = extended.
 FINGER_MAP = {                  # CHORD HAND → scale degree (None = silence)
