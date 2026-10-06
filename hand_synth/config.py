@@ -35,6 +35,9 @@ MOD_MAP = {                     # EXPRESSION HAND → modification
     # anything else: keep previous modification. EXPECTED TO CHANGE after first play session.
 }
 ROOT_OCTAVE = 3
+VOICE_LEADING = True            # re-voice each new chord to move as few semitones as possible
+VOICING_RANGE = (45, 69)        # MIDI window the voiced chord tones stay in (A2..A4)
+BASS_NOTE = True                # add the chord root an octave below the root octave
 
 # ── Stabilization ────────────────────────────────────────────────────────────
 ROLL_MINOR_DEG = 35.0           # chord hand rolled more than this from upright → flip quality
@@ -48,6 +51,9 @@ CUTOFF_HZ = (300.0, 6000.0)         # brightness range, log-mapped
 GAIN_RANGE = (0.0, 0.8)             # wrist-y (top of frame = loud)
 WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.25   # expression-hand wrist y (0 top..1 bottom) mapped to GAIN_RANGE ends
 GAIN_START = 0.5                    # 0..1 position in GAIN_RANGE before the expression hand appears
+REVERB_MIX_RANGE = (0.05, 0.6)      # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wet)
+WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x as a fraction of frame width
+REVERB_START = 0.4                  # 0..1 position in REVERB_MIX_RANGE before the expression hand appears
 BRIGHTNESS_START = 0.5              # 0..1 position in CUTOFF_HZ before the expression hand appears
 
 # ── Audio ────────────────────────────────────────────────────────────────────
@@ -56,6 +62,9 @@ BLOCK_SIZE = 256                # raise to 512 if the overlay shows XRUN persist
 WAVEFORM = "triangle"           # "sine" | "triangle" | "saw"   (cycle live with 'w')
 WAVEFORMS = ["sine", "triangle", "saw"]
 ATTACK_S, RELEASE_S = 0.02, 0.08
+DETUNE_CENTS = 7.0              # unison: each note is two oscillators at ±this many cents (0 = off)
+REVERB_ROOM = 0.84              # reverb tail length: comb feedback, 0..0.95
+REVERB_DAMP = 0.4               # high-frequency damping inside the tail, 0..1
 GAIN_RAMP_S = 0.02              # master-gain smoothing inside the audio thread
 CUTOFF_RAMP_S = 0.03            # cutoff smoothing inside the audio thread
 STOP_FADE_S = 0.15              # fade-out on quit before the stream closes

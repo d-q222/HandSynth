@@ -11,6 +11,7 @@ class SynthParams:
     gain: float = 0.5          # 0..1 master gain (already mapped through config.GAIN_RANGE)
     cutoff_hz: float = 2000.0  # low-pass cutoff
     waveform: str = "triangle"  # "sine" | "triangle" | "saw"
+    reverb: float = 0.0        # 0..1 wet mix
 
 
 class Synth(Protocol):
