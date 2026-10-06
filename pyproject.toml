@@ -26,3 +26,4 @@ include = ["hand_synth*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = ["ignore:Type google._upb:DeprecationWarning"]

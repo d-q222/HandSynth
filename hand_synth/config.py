@@ -46,6 +46,7 @@ EMA_ALPHA = 0.3                 # continuous smoothing
 PINCH_MIN, PINCH_MAX = 0.15, 0.9    # normalized pinch range → 0..1
 CUTOFF_HZ = (300.0, 6000.0)         # brightness range, log-mapped
 GAIN_RANGE = (0.0, 0.8)             # wrist-y (top of frame = loud)
+WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.25   # expression-hand wrist y (0 top..1 bottom) mapped to GAIN_RANGE ends
 GAIN_START = 0.5                    # 0..1 position in GAIN_RANGE before the expression hand appears
 BRIGHTNESS_START = 0.5              # 0..1 position in CUTOFF_HZ before the expression hand appears
 
@@ -74,4 +75,5 @@ FIXTURE_DIR = "fixtures/landmarks"             # where 'r' dumps landmark JSON
 # ── UI ───────────────────────────────────────────────────────────────────────
 WINDOW_NAME = "hand synth"
 KEYBAR_HEIGHT = 48              # px, 12 key buttons across the top of the frame
-PANEL_WIDTH = 300               # px, info panel on the right side of the frame
+HUD_HEIGHT = 120                # px, translucent info strip along the bottom of the frame
+FLASH_S = 1.5                   # how long transient messages ("saved fixture") stay on screen
