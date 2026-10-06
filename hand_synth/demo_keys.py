@@ -5,21 +5,45 @@ import cv2
 import numpy as np
 
 from . import config as cfg
+from . import ui
 from .keycodes import arrow
 from .music import chord_freqs, chord_name
 from .synth.base import SynthParams
 from .synth.numpy_synth import NumpySynth
 
 HELP = [
-    "1-7  degree        0  silence",
-    "m    flip major/minor",
-    "s    cycle none/sus2/sus4",
-    "j/k/l  toggle add7/add9/add6 (7,9,6 are degrees)",
-    "n    mod none",
-    "left/right  key   up/down  gain",
-    "[ / ]  cutoff     w  waveform",
-    "q / Esc  quit",
+    ("1 – 7", "degree"), ("0", "silence"), ("M", "flip major / minor"),
+    ("S", "none / sus2 / sus4"), ("J  K  L", "add7 · add9 · add6"), ("N", "no modifier"),
+    ("Left Right", "key"), ("Up Down", "volume"), ("[  ]", "brightness"), ("W", "waveform"), ("Q", "quit"),
 ]
+SIZE = (960, 540)
+
+
+def draw(img, keybar, key, degree, flipped, mod, wave, gain, cutoff, xrun):
+    w, h = SIZE
+    img[:] = (20, 18, 17)
+    keybar.draw(img, key)
+    s = ui.OverlayState(key=key, chord="" if degree is None else chord_name(key, degree, flipped, mod),
+                        degree=degree, flipped=flipped, mod=mod, chord_fingers=None, expr_fingers=None,
+                        roll=None, zone="natural", gain=gain / cfg.GAIN_RANGE[1], brightness=0.0,
+                        cutoff_hz=cutoff, waveform=wave, chord_hand=cfg.CHORD_HAND, expr_hand=cfg.EXPR_HAND,
+                        xrun=xrun)
+    ui._chord_card(img, s, ui.MARGIN, ui.MARGIN + cfg.KEYBAR_HEIGHT + 12, detailed=True)
+    x, y = w // 2 + 20, ui.MARGIN + cfg.KEYBAR_HEIGHT + 12
+    ui.panel(img, x - 20, y, w - ui.MARGIN, y + 34 + 24 * len(HELP), r=18)
+    ui.draw_text(img, "KEYBOARD", x, y + 16, 12, ui.TEXT_3, "bold")
+    for i, (k, what) in enumerate(HELP):
+        ui.draw_text(img, k, x, y + 38 + 24 * i, 15, ui.TEXT, "medium")
+        ui.draw_text(img, what, x + 90, y + 38 + 24 * i, 15, ui.TEXT_2)
+    my = h - ui.MARGIN - 100
+    ui.panel(img, ui.MARGIN, my, w // 2, h - ui.MARGIN, r=18)
+    mw = w // 2 - ui.MARGIN - 44
+    ui._meter(img, ui.MARGIN + 22, my + 18, mw, "VOLUME", s.gain, f"{s.gain * 100:.0f}%")
+    lo, hi = cfg.CUTOFF_HZ
+    ui._meter(img, ui.MARGIN + 22, my + 60, mw, "BRIGHTNESS", np.log(cutoff / lo) / np.log(hi / lo), f"{cutoff:,.0f} Hz")
+    ui.pill(img, f"Wave · {wave.capitalize()}", ui.MARGIN, my - 44, 15, ui.TEXT, ui.MUTED, alpha=0.85)
+    if xrun:
+        ui.pill(img, "XRUN", w // 2 - 70, my - 44, 15, ui.TEXT, ui.ALERT)
 
 
 def main():
@@ -36,8 +60,16 @@ def main():
     wave_i = cfg.WAVEFORMS.index(cfg.WAVEFORM)
     last = None
     params_dirty = True
+    win = cfg.WINDOW_NAME + " - keys"
+    img = np.zeros((SIZE[1], SIZE[0], 3), np.uint8)
+    picked = {"key": None}
+    keybar = ui.KeyBar(cfg.KEY_NAMES, lambda k: picked.update(key=k), cfg.KEYBAR_HEIGHT)
+    cv2.namedWindow(win)
+    cv2.setMouseCallback(win, keybar.mouse)
     try:
         while True:
+            if picked["key"]:
+                key_i, picked["key"] = cfg.KEY_NAMES.index(picked["key"]), None
             key = cfg.KEY_NAMES[key_i]
             state = (key, degree, flipped, mod)
             if state != last:
@@ -47,19 +79,12 @@ def main():
                 synth.set_params(SynthParams(gain, cutoff, cfg.WAVEFORMS[wave_i]))
                 params_dirty = False
 
-            img = np.zeros((360, 560, 3), np.uint8)
-            name = "-" if degree is None else chord_name(key, degree, flipped, mod)
-            lines = [f"key {key}   chord {name}", f"degree {degree}   flip {flipped}   mod {mod}",
-                     f"wave {cfg.WAVEFORMS[wave_i]}   gain {gain:.2f}   cutoff {cutoff:.0f} Hz"]
-            if synth.recent_xrun():
-                lines.append("XRUN")
-            for i, t in enumerate(lines):
-                cv2.putText(img, t, (12, 28 + 26 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-            for i, t in enumerate(HELP):
-                cv2.putText(img, t, (12, 150 + 24 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (160, 160, 160), 1)
-            cv2.imshow(cfg.WINDOW_NAME + " keys", img)
+            draw(img, keybar, key, degree, flipped, mod, cfg.WAVEFORMS[wave_i], gain, cutoff, synth.recent_xrun())
+            cv2.imshow(win, img)
 
             k = cv2.waitKeyEx(15)
+            if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) < 1:
+                break
             if k == -1:
                 continue
             a = arrow(k)

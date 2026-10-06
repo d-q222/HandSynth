@@ -19,7 +19,7 @@ uv pip install -p .venv/bin/python -e ".[dev]"     # or: .venv/bin/pip install -
   launched Python. If you get `cannot read from camera`, allow it in System Settings → Privacy &
   Security → Camera, then rerun. The app keeps retrying for `CAMERA_WAIT_S` (15 s), so you can click
   Allow on the first-run prompt without restarting.
-- Sound only, no camera: `.venv/bin/python -m hand_synth.demo_keys`. Keys `1`–`7` pick a degree, `0` is silence,
+- Sound only, no camera: `.venv/bin/python -m hand_synth.demo_keys` (the key bar is clickable there too). Keys `1`–`7` pick a degree, `0` is silence,
   `m` flips major/minor, `s` cycles sus2/sus4, `j`/`k`/`l` toggle add7/add9/add6, `←`/`→` change key,
   `↑`/`↓` change gain, `[`/`]` change cutoff, `w` changes the waveform.
 
