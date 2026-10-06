@@ -33,6 +33,7 @@ MOD_MAP = {                     # EXPRESSION HAND → modification
     (False, True, True, True, False):    "add7",
     (False, True, True, True, True):     "add9",
     (True, False, False, False, False):  "add6",
+    (True, True, False, False, False):   "7",      # "L" shape: flat 7th — dominant 7 on major chords (D7 in D)
     # anything else: keep previous modification. EXPECTED TO CHANGE after first play session.
 }
 ROOT_OCTAVE = 3

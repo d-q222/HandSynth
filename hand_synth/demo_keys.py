@@ -14,7 +14,7 @@ from .synth.numpy_synth import NumpySynth
 
 HELP = [
     ("1 – 7", "degree"), ("0", "silence"), ("M", "flip major / minor"),
-    ("S", "none / sus2 / sus4"), ("J  K  L", "add7 · add9 · add6"), ("N", "no modifier"),
+    ("S", "none / sus2 / sus4"), ("J K L B", "add7 · add9 · add6 · 7"), ("N", "no modifier"),
     ("Left Right", "key"), ("Up Down", "volume"), ("[  ]", "brightness"), ("W", "waveform"), ("Q", "quit"),
 ]
 SIZE = (960, 540)
@@ -105,8 +105,8 @@ def main():
                 flipped = not flipped
             elif c == "s":
                 mod = {"none": "sus2", "sus2": "sus4"}.get(mod, "none")
-            elif c in ("j", "k", "l"):
-                m = {"j": "add7", "k": "add9", "l": "add6"}[c]
+            elif c in ("j", "k", "l", "b"):
+                m = {"j": "add7", "k": "add9", "l": "add6", "b": "7"}[c]
                 mod = "none" if mod == m else m
             elif c == "n":
                 mod = "none"

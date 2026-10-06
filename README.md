@@ -67,6 +67,7 @@ Re-run the script if you move the repo.
 | | index + middle + ring | add7 |
 | | four fingers | add9 |
 | | thumb | add6 |
+| | thumb + index ("L") | 7: flat 7th (D7 in the key of D; add7 gives the in-key Dmaj7) |
 | | raise / lower the hand | louder / quieter |
 | | open / close the thumb–index pinch | brighter / darker |
 | | move the hand outward / inward | more / less reverb ("space") |

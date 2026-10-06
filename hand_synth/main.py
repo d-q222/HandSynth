@@ -6,6 +6,7 @@ Run: `python -m hand_synth.main` (or `hand-synth` after `pip install -e .`).
 """
 import argparse
 import json
+import signal
 import sys
 import time
 from pathlib import Path
@@ -330,8 +331,13 @@ def main(argv=None):
     flash, flash_until = None, 0.0
     last_hands_t = -1e9               # when a hand was last in view (drives the empty-state hint)
     fps, last_t = 0.0, time.monotonic()
+    # Quit cleanly (with the audio fade) on Ctrl-C, `kill`, or logout. Set explicitly: when launched
+    # from Finder, macOS starts the process with SIGINT ignored, and SIGTERM would kill it mid-sound.
+    stop = {"now": False}
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: stop.update(now=True))
     try:
-        while True:
+        while not stop["now"]:
             if frame is None:
                 ok, frame = cap.read()
                 if not ok:

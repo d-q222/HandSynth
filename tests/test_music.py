@@ -335,3 +335,14 @@ def test_added_notes_stack_above_the_triad():
                     assert all(n > v[0] for n in v[1:])                    # everything above it
                     if triad_up:
                         assert all(n > triad_up[-1] for n in v[1:] if n % 12 in added), (key, deg, fl, mod, v)
+
+
+def test_flat_seven_modifier_reaches_dominant_sevenths():
+    """'7' adds the flat 7th on any degree: I7 (D7 in D) is reachable, unlike diatonic add7 (Dmaj7)."""
+    assert music.chord_name("D", 1, False, "7") == "D7"
+    assert music.chord_name("D", 1, False, "add7") == "Dmaj7"
+    assert music.chord_midi("D", 1, False, "7") == [50, 54, 57, 60]          # D F# A C
+    assert music.chord_name("C", 4, False, "7") == "F7"
+    assert music.chord_name("C", 2, False, "7") == "Dm7"
+    assert music.chord_name("C", 7, False, "7") == "Bm7b5"
+    assert music.chord_name("C", 1, True, "7") == "Cm7"

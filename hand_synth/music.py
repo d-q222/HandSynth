@@ -12,7 +12,8 @@ MODS = {
     "none": lambda iv, deg: iv,
     "sus2": lambda iv, deg: [0, 2, 7],                    # replaces the third
     "sus4": lambda iv, deg: [0, 5, 7],
-    "add7": lambda iv, deg: iv + [SEVENTH[deg]],
+    "add7": lambda iv, deg: iv + [SEVENTH[deg]],            # diatonic 7th: Cmaj7, Dm7, G7 in C
+    "7": lambda iv, deg: iv + [10],                          # flat 7th on any degree: C7 (I7), Dm7, Bm7b5
     "add9": lambda iv, deg: iv + [14],
     "add6": lambda iv, deg: iv + [9],
 }
@@ -70,8 +71,8 @@ def chord_name(key, degree, flipped=False, mod="none"):
         suffix = _TRIAD_SUFFIX[q]
     elif mod in ("sus2", "sus4"):
         suffix = mod
-    elif mod == "add7":
-        suffix = _ADD7_SUFFIX[(q, SEVENTH[degree])]
+    elif mod in ("add7", "7"):
+        suffix = _ADD7_SUFFIX[(q, SEVENTH[degree] if mod == "add7" else 10)]
     elif mod == "add9":
         suffix = _TRIAD_SUFFIX[q] + "add9"
     else:
