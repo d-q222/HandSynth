@@ -52,6 +52,7 @@ cat > "$APP/Contents/MacOS/hand-synth" <<LAUNCH
 #!/bin/zsh
 # Launched by Finder/Dock: run the instrument from the repo, logging to ~/Library/Logs/HandSynth.log.
 cd "$REPO" || exit 1
+export PYTHONUNBUFFERED=1          # log lines appear as they happen
 { echo; echo "=== \$(date) ==="; } >> "$LOG"
 exec "$REPO/.venv/bin/python" -m hand_synth.main "\$@" >> "$LOG" 2>&1
 LAUNCH
