@@ -164,8 +164,9 @@ def _upper_sets(intervals):
     return out
 
 
-def _voicing_score(upper, bass, ninth_over, prev, center):
-    """(hard breaches, soft score) for sorted `upper` voices over `bass`."""
+def _voicing_score(upper, bass, ninth_over, prev, center, added=frozenset()):
+    """(hard breaches, soft score) for sorted `upper` voices over `bass`. `added` = pitch classes
+    of added notes (6th/7th/9th), which must sit above every root in the upper voices."""
     notes = [bass] + upper
     hard, soft = 0, 0.0
     n = len(notes)
@@ -197,6 +198,10 @@ def _voicing_score(upper, bass, ninth_over, prev, center):
         thirds = [u for u in upper if u % 12 in ninth_over[1]]
         if ninth and thirds and ninth[0] < max(thirds):
             hard += 1
+    if added:
+        roots_up = [u for u in upper if u % 12 == bass % 12]
+        if roots_up and any(u % 12 in added and u < roots_up[-1] for u in upper):
+            hard += 1                                       # added notes go above the root
     soft += _W_REGISTER * abs(sum(upper) / len(upper) - center)
     soft += _W_SPAN * (upper[-1] - upper[0])
     if prev:
@@ -212,7 +217,8 @@ def balanced_voicing(intervals, root_midi, prev_upper, *, bass_midi, upper_range
 
     Brute force over every placement of each candidate upper pitch-class set within
     upper_range. Hard rules: no minor 2nd/9th between any two voices, low interval
-    limits on adjacent voices, 9th above every 3rd, adjacent upper voices within an
+    limits on adjacent voices, 9th above every 3rd, added notes (6/7/9) above every
+    upper-voice root, adjacent upper voices within an
     octave, bass to lowest upper voice a 5th..two octaves. Soft score: wide-low /
     narrow-high spacing, exposed whole steps, distance from register_center, movement
     from prev_upper (when voice_leading), omitted 5th.
@@ -226,13 +232,14 @@ def balanced_voicing(intervals, root_midi, prev_upper, *, bass_midi, upper_range
     ninth_over = (((2 + root_pc) % 12), {(t + root_pc) % 12 for t in thirds}) \
         if (2 in pcs_rel and thirds) else None
     prev = list(prev_upper) if (voice_leading and prev_upper) else None
+    added = frozenset((i + root_pc) % 12 for i in intervals if i >= 9)   # 6th, 7th, 9th (from mods)
     best_key, best = None, None
     for rel, omitted5 in _upper_sets(intervals):
         options = [_placements((p + root_pc) % 12, lo, hi) for p in rel]
         base = _W_OMIT5 if omitted5 else 0.0
         for combo in product(*options):
             upper = sorted(combo)
-            hard, soft = _voicing_score(upper, bass_midi, ninth_over, prev, register_center)
+            hard, soft = _voicing_score(upper, bass_midi, ninth_over, prev, register_center, added)
             key = (hard * _HARD + soft + base, upper)
             if best_key is None or key < best_key:
                 best_key, best = key, upper

@@ -318,3 +318,19 @@ def test_balanced_fast():
             _bal("C", 1, False, m, prev)
             times.append(time.perf_counter() - t)
     assert statistics.median(times) < 0.002
+
+
+def test_added_notes_sit_above_the_root():
+    """6ths, 7ths and 9ths are never tucked under a root in the upper voices (owner's request)."""
+    for key in config.KEY_NAMES:
+        for deg in range(1, 8):
+            for fl in (False, True):
+                for mod in ("add7", "add9", "add6"):
+                    raw = music.chord_midi(key, deg, fl, mod)
+                    added = {n % 12 for n in raw if n - raw[0] >= 9}
+                    v = music.chord_voicing(key, deg, fl, mod, None)
+                    roots_up = [n for n in v[1:] if n % 12 == v[0] % 12]
+                    assert v[0] % 12 == raw[0] % 12                       # root in the bass
+                    assert all(n > v[0] for n in v[1:])                    # everything above it
+                    if roots_up:
+                        assert all(n > roots_up[-1] for n in v[1:] if n % 12 in added), (key, deg, fl, mod, v)
