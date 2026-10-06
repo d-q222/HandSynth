@@ -33,6 +33,12 @@ def logmap(rng: tuple[float, float], t: float) -> float:
     return rng[0] * (rng[1] / rng[0]) ** t
 
 
+def voicing_options(c=cfg) -> dict:
+    return dict(style=c.VOICING_STYLE, octave=c.ROOT_OCTAVE, voice_leading=c.VOICE_LEADING,
+                voicing_range=c.VOICING_RANGE, bass=c.BASS_NOTE, upper_range=c.UPPER_RANGE,
+                register_center=c.REGISTER_CENTER)
+
+
 def check_config(c=cfg) -> list[str]:
     """Problems in config.py that would otherwise only surface mid-performance (e.g. a typo in MOD_MAP)."""
     errs = []
@@ -52,12 +58,13 @@ def check_config(c=cfg) -> list[str]:
     for name, value, allowed in (("KEY", c.KEY, c.KEY_NAMES), ("WAVEFORM", c.WAVEFORM, c.WAVEFORMS),
                                  ("UI_MODE", c.UI_MODE, c.UI_MODES), ("CHORD_HAND", c.CHORD_HAND, ("Left", "Right")),
                                  ("HANDEDNESS", c.HANDEDNESS, ("position", "mediapipe")),
+                                 ("VOICING_STYLE", c.VOICING_STYLE, ("balanced", "close")),
                                  ("EXPR_HAND", c.EXPR_HAND, ("Left", "Right"))):
         if value not in allowed:
             errs.append(f"{name} = {value!r} must be one of {list(allowed)}")
     if c.CHORD_HAND == c.EXPR_HAND:
         errs.append("CHORD_HAND and EXPR_HAND must be different hands")
-    for name in ("CUTOFF_HZ", "GAIN_RANGE", "REVERB_MIX_RANGE", "VOICING_RANGE"):
+    for name in ("CUTOFF_HZ", "GAIN_RANGE", "REVERB_MIX_RANGE", "VOICING_RANGE", "UPPER_RANGE"):
         lo, hi = getattr(c, name)
         if not lo < hi:
             errs.append(f"{name} = {(lo, hi)} must be (low, high) with low < high")
@@ -136,8 +143,7 @@ class Instrument:
         if changed:
             s = new
             self.voicing = [] if s["degree"] is None else chord_voicing(
-                s["key"], s["degree"], s["flipped"], s["mod"], cfg.ROOT_OCTAVE, self.voicing or None,
-                cfg.VOICE_LEADING, cfg.VOICING_RANGE, cfg.BASS_NOTE)
+                s["key"], s["degree"], s["flipped"], s["mod"], self.voicing or None, **voicing_options())
         return changed
 
     def freqs(self) -> list[float]:

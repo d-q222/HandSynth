@@ -7,6 +7,7 @@ import numpy as np
 from . import config as cfg
 from . import ui
 from .keycodes import arrow
+from .main import voicing_options
 from .music import chord_name, chord_voicing, midi_to_hz
 from .synth.base import SynthParams
 from .synth.numpy_synth import NumpySynth
@@ -77,8 +78,7 @@ def main():
             state = (key, degree, flipped, mod)
             if state != last:
                 voicing = [] if degree is None else chord_voicing(
-                    key, degree, flipped, mod, cfg.ROOT_OCTAVE, voicing or None,
-                    cfg.VOICE_LEADING, cfg.VOICING_RANGE, cfg.BASS_NOTE)
+                    key, degree, flipped, mod, voicing or None, **voicing_options())
                 synth.set_chord([midi_to_hz(n) for n in voicing])
                 last = state
             if params_dirty:

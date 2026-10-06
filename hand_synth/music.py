@@ -129,17 +129,139 @@ def with_bass(notes, root_midi):
     return sorted(set(notes) | {root_midi - 12})
 
 
-def chord_voicing(key, degree, flipped, mod, octave, prev, voice_leading, voicing_range, bass):
-    """chord_midi -> optional voice_lead within voicing_range -> optional bass.
+# ---- balanced voicing ----
 
-    `prev` is the previous chord_voicing result (bass included, lowest note stripped
-    when bass=True). The bass is root-12, dropped further by octaves if needed to sit
-    below the voiced notes. Returns sorted MIDI notes.
+# Low Interval Limits: interval in semitones -> lowest acceptable MIDI note for the
+# lower note of that interval (Berklee-style). Octaves and anything wider than a
+# major tenth have no limit.
+_LIL = {1: 52, 2: 51, 3: 48, 4: 46, 5: 46, 6: 46, 7: 34, 8: 41, 9: 41, 10: 41,
+        11: 41, 13: 40, 14: 39, 15: 36, 16: 34}
+
+# Soft-score weights (lower score = better). Hard-rule breaches cost _HARD each so
+# a chord with no legal voicing still gets its least-bad one instead of crashing.
+_W_SHAPE = 0.5      # per semitone an interval is wider than the one below it
+_W_STEP = 3.0       # per exposed whole step between adjacent upper voices
+_W_REGISTER = 0.3   # per semitone the upper-voice mean sits from register_center
+_W_MOVE = 1.0       # per semitone of voice-leading movement (nearest-note, both ways)
+_W_OMIT5 = 1.5      # dropping the perfect fifth of a 4-note chord
+_W_FAR_LIL = 2.0    # non-adjacent pair, within a tenth, below its low interval limit
+_W_BASS_GAP = 0.8   # per semitone the bass->lowest-upper gap is short of an octave
+_W_SPAN = 0.05      # per semitone of upper-voice span (space belongs below, not on top)
+_HARD = 1000.0
+
+
+def _upper_sets(intervals):
+    """Candidate pitch-class sets for 3-4 upper voices: every non-root pc, the perfect
+    fifth optional in 4-note chords, the root optionally doubled (always, in triads).
+    -> [(pcs, omitted5)]"""
+    pcs = sorted({i % 12 for i in intervals} - {0})
+    out = []
+    for drop5 in ((False, True) if (7 in pcs and len(pcs) >= 3) else (False,)):
+        core = [p for p in pcs if not (drop5 and p == 7)]
+        for s in (core, core + [0]):
+            if 3 <= len(s) <= 4:
+                out.append((s, drop5))
+    return out
+
+
+def _voicing_score(upper, bass, ninth_over, prev, center):
+    """(hard breaches, soft score) for sorted `upper` voices over `bass`."""
+    notes = [bass] + upper
+    hard, soft = 0, 0.0
+    n = len(notes)
+    for i in range(n):
+        lo = notes[i]
+        for j in range(i + 1, n):
+            d = notes[j] - lo
+            if d % 12 == 1:
+                hard += 1                                   # m2 / m9 anywhere
+            elif lo < _LIL.get(d, 0):
+                if j == i + 1:
+                    hard += 1                               # adjacent voices: LIL is hard
+                else:
+                    soft += _W_FAR_LIL
+    gaps = [b - a for a, b in zip(notes, notes[1:])]
+    if not 7 <= gaps[0] <= 24:
+        hard += 1
+    soft += _W_BASS_GAP * max(0, 12 - gaps[0])              # overtone series: octave first
+    for g in gaps[1:]:
+        if g > 12:
+            hard += 1
+        if g == 2:
+            soft += _W_STEP
+    for a, b in zip(gaps, gaps[1:]):
+        if b > a:
+            soft += _W_SHAPE * (b - a)                      # wide low, narrow high
+    if ninth_over is not None:
+        ninth = [u for u in upper if u % 12 == ninth_over[0]]
+        thirds = [u for u in upper if u % 12 in ninth_over[1]]
+        if ninth and thirds and ninth[0] < max(thirds):
+            hard += 1
+    soft += _W_REGISTER * abs(sum(upper) / len(upper) - center)
+    soft += _W_SPAN * (upper[-1] - upper[0])
+    if prev:
+        soft += _W_MOVE * (sum(min(abs(u - p) for p in prev) for u in upper)
+                           + sum(min(abs(u - p) for u in upper) for p in prev))
+    return hard, soft
+
+
+def balanced_voicing(intervals, root_midi, prev_upper, *, bass_midi, upper_range=(48, 76),
+                     register_center=58, voice_leading=True):
+    """Root alone in the bass (bass_midi), chord tones above it, balanced. Returns
+    sorted MIDI, bass first.
+
+    Brute force over every placement of each candidate upper pitch-class set within
+    upper_range. Hard rules: no minor 2nd/9th between any two voices, low interval
+    limits on adjacent voices, 9th above every 3rd, adjacent upper voices within an
+    octave, bass to lowest upper voice a 5th..two octaves. Soft score: wide-low /
+    narrow-high spacing, exposed whole steps, distance from register_center, movement
+    from prev_upper (when voice_leading), omitted 5th.
+    """
+    root_pc = root_midi % 12
+    lo, hi = upper_range
+    if hi - lo < 11:
+        hi = lo + 11
+    pcs_rel = {i % 12 for i in intervals}
+    thirds = {p for p in (3, 4) if p in pcs_rel}
+    ninth_over = (((2 + root_pc) % 12), {(t + root_pc) % 12 for t in thirds}) \
+        if (2 in pcs_rel and thirds) else None
+    prev = list(prev_upper) if (voice_leading and prev_upper) else None
+    best_key, best = None, None
+    for rel, omitted5 in _upper_sets(intervals):
+        options = [_placements((p + root_pc) % 12, lo, hi) for p in rel]
+        base = _W_OMIT5 if omitted5 else 0.0
+        for combo in product(*options):
+            upper = sorted(combo)
+            hard, soft = _voicing_score(upper, bass_midi, ninth_over, prev, register_center)
+            key = (hard * _HARD + soft + base, upper)
+            if best_key is None or key < best_key:
+                best_key, best = key, upper
+    return [bass_midi] + best
+
+
+def chord_voicing(key, degree, flipped, mod, prev, *, style="balanced", octave=3,
+                  voice_leading=True, voicing_range=(45, 69), bass=True,
+                  upper_range=(48, 76), register_center=58):
+    """Voice a chord. `prev` is the previous chord_voicing result (or None).
+
+    style "balanced": the root alone in the bass at MIDI 12*octave + root pc (C2..B2
+    for octave 3), upper voices from balanced_voicing (prev's bass stripped). With
+    bass=False only the upper voices are returned.
+    style "close": chord_midi -> optional voice_lead within voicing_range -> optional
+    bass (root-12, dropped further by octaves to sit below the voiced notes).
+    Returns sorted MIDI notes.
     """
     notes = chord_midi(key, degree, flipped, mod, octave)
     root = notes[0]
+    upper_prev = sorted(prev)[1:] if (prev and bass) else prev
+    if style == "balanced":
+        out = balanced_voicing([n - root for n in notes], root, upper_prev, bass_midi=root - 12,
+                               upper_range=upper_range, register_center=register_center,
+                               voice_leading=voice_leading)
+        return out if bass else out[1:]
+    if style != "close":
+        raise ValueError(f"bad style: {style!r}")
     if voice_leading:
-        upper_prev = sorted(prev)[1:] if (prev and bass) else prev
         notes = voice_lead(notes, upper_prev, voicing_range[0], voicing_range[1])
     if not bass:
         return sorted(notes)

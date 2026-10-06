@@ -36,9 +36,13 @@ MOD_MAP = {                     # EXPRESSION HAND → modification
     # anything else: keep previous modification. EXPECTED TO CHANGE after first play session.
 }
 ROOT_OCTAVE = 3
-VOICE_LEADING = True            # re-voice each new chord to move as few semitones as possible
-VOICING_RANGE = (45, 69)        # MIDI window the voiced chord tones stay in (A2..A4)
-BASS_NOTE = True                # add the chord root an octave below the root octave
+VOICING_STYLE = "balanced"      # "balanced": root alone in the bass, tones spaced like the overtone series,
+                                #   no m2/m9 clashes, low-interval limits respected | "close": tight voice-led cluster
+VOICE_LEADING = True            # prefer voicings that move as few semitones as possible from the last chord
+UPPER_RANGE = (48, 76)          # balanced: MIDI window for the notes above the bass (C3..E5)
+REGISTER_CENTER = 58            # balanced: where the upper voices like to sit (A#3), under a singing voice
+VOICING_RANGE = (45, 69)        # close: MIDI window the voiced chord tones stay in (A2..A4)
+BASS_NOTE = True                # close: add the chord root an octave below (balanced always has it)
 
 # ── Stabilization ────────────────────────────────────────────────────────────
 ROLL_MINOR_DEG = 35.0           # chord hand rolled more than this from upright → flip quality

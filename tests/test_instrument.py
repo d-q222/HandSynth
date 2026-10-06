@@ -173,8 +173,9 @@ def test_progression_is_voice_led(inst):
     prev = None
     for state in (OPEN, IMR, (False, True, True, True, True), OPEN):     # I, IV, V, I
         play(inst, n, lh=left(state))
-        upper = inst.voicing[1:] if cfg.BASS_NOTE else inst.voicing
-        lo, hi = cfg.VOICING_RANGE
+        upper = inst.voicing[1:]
+        lo, hi = cfg.UPPER_RANGE
+        assert inst.voicing[0] % 12 == chord_midi("G", inst.state["degree"])[0] % 12   # root in the bass
         assert all(lo <= m <= hi for m in upper)
         if prev:
             assert max(min(abs(a - b) for b in prev) for a in upper) <= 5
