@@ -1,3 +1,6 @@
+import time
+from types import SimpleNamespace
+
 import numpy as np
 
 from hand_synth import config as cfg
@@ -125,8 +128,6 @@ def test_import_without_audio_device():
 
 
 # ---- reverb / detune --------------------------------------------------------
-import time
-from types import SimpleNamespace
 
 
 def cfg_with(**kw):

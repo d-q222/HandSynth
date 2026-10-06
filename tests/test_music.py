@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 from hand_synth import config, music
@@ -99,7 +101,6 @@ def test_errors():
 
 
 # ---- voice leading ----
-import random
 
 RANGE = (45, 69)
 
