@@ -56,6 +56,10 @@ Options:
 | | move the hand outward / inward | more / less reverb ("space") |
 
 Click a key along the top bar to change the key; `←`/`→` do the same.
+
+**Sliders.** The bottom panel's VOLUME, BRIGHTNESS and SPACE are sliders. Drag one to set it, and it
+becomes **PINNED**: your hand stops driving it, so you can set a level and keep it. Click the
+PINNED chip to give that control back to your hand (HAND). Click Sine / Triangle / Saw to change the waveform.
 Other keys:
 - `h` hides the clutter, cycling through three overlay modes:
   - **full**: everything.

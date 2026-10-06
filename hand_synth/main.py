@@ -87,6 +87,7 @@ class Instrument:
         self.chord_fingers = None   # held tuples, for the overlay
         self.expr_fingers = None
         self.expr_missing = 0       # consecutive frames without the expression hand
+        self.pinned: set[str] = set()   # controls set by an on-screen slider; the hand leaves them alone
 
     def update(self, hands: HandsFrame, key: str | None = None) -> bool:
         """Advance one frame. Returns True when the chord (key/degree/flipped/mod) changed."""
@@ -113,11 +114,14 @@ class Instrument:
             if mod != KEEP:
                 new["mod"] = mod
             wx, wy = self.feats.wrist_xy(expr_hand.landmarks)
-            xf = wx / hands.aspect if cfg.EXPR_HAND == "Right" else 1.0 - wx / hands.aspect   # 0 = midline side
-            self.ema_space.update(clamp01((xf - cfg.WRIST_X_DRY) / (cfg.WRIST_X_WET - cfg.WRIST_X_DRY)))
-            self.ema_gain.update(clamp01((wy - cfg.WRIST_Y_QUIET) / (cfg.WRIST_Y_LOUD - cfg.WRIST_Y_QUIET)))
-            self.ema_bright.update(clamp01((self.feats.pinch_norm(expr_hand.landmarks) - cfg.PINCH_MIN)
-                                           / (cfg.PINCH_MAX - cfg.PINCH_MIN)))
+            if "space" not in self.pinned:
+                xf = wx / hands.aspect if cfg.EXPR_HAND == "Right" else 1.0 - wx / hands.aspect  # 0 = midline side
+                self.ema_space.update(clamp01((xf - cfg.WRIST_X_DRY) / (cfg.WRIST_X_WET - cfg.WRIST_X_DRY)))
+            if "volume" not in self.pinned:
+                self.ema_gain.update(clamp01((wy - cfg.WRIST_Y_QUIET) / (cfg.WRIST_Y_LOUD - cfg.WRIST_Y_QUIET)))
+            if "brightness" not in self.pinned:
+                self.ema_bright.update(clamp01((self.feats.pinch_norm(expr_hand.landmarks) - cfg.PINCH_MIN)
+                                               / (cfg.PINCH_MAX - cfg.PINCH_MIN)))
         else:
             # Gone for HOLD_FRAMES frames → mod resets (volume, brightness and space hold). A one-frame
             # tracking dropout changes nothing, so the chord doesn't stutter.
@@ -150,6 +154,15 @@ class Instrument:
     def params(self) -> SynthParams:
         return SynthParams(gain=lerp(cfg.GAIN_RANGE, self.ema_gain.value), cutoff_hz=self.cutoff_hz,
                            waveform=self.waveform, reverb=lerp(cfg.REVERB_MIX_RANGE, self.ema_space.value))
+
+    def set_control(self, name: str, t: float):
+        """A slider moved: set the control (0..1) and pin it so the hand stops driving it."""
+        {"volume": self.ema_gain, "brightness": self.ema_bright, "space": self.ema_space}[name].set(clamp01(t))
+        self.pinned.add(name)
+
+    def release_control(self, name: str):
+        """Toggle a control between pinned (slider) and hand-driven."""
+        self.pinned.discard(name)
 
     def cycle_waveform(self):
         self.waveform = cfg.WAVEFORMS[(cfg.WAVEFORMS.index(self.waveform) + 1) % len(cfg.WAVEFORMS)]
@@ -220,7 +233,7 @@ def open_camera(source: str):
 def main(argv=None):
     from .synth.numpy_synth import NumpySynth
     from .tracking import Tracker
-    from .ui import KeyBar, OverlayState, draw_overlay
+    from .ui import HudControls, KeyBar, OverlayState, draw_overlay
 
     args = parse_args(sys.argv[1:] if argv is None else argv)
     if errs := check_config():
@@ -250,8 +263,15 @@ def main(argv=None):
     inst = Instrument(fingers_fn, feats, key=args.key)
     pending = {"key": None}           # set by the mouse callback (runs inside waitKey), applied next frame
     keybar = KeyBar(cfg.KEY_NAMES, on_select=lambda k: pending.update(key=k), height=cfg.KEYBAR_HEIGHT)
+    def set_wave(wf):
+        inst.waveform = wf
+    hud = HudControls(on_slide=inst.set_control, on_release=inst.release_control, on_wave=set_wave)
+
+    def on_mouse(*event):                 # runs inside waitKey, on the main thread
+        keybar.mouse(*event)
+        hud.mouse(*event)
     cv2.namedWindow(cfg.WINDOW_NAME)
-    cv2.setMouseCallback(cfg.WINDOW_NAME, keybar.mouse)
+    cv2.setMouseCallback(cfg.WINDOW_NAME, on_mouse)
 
     ui_mode = args.ui
     flash, flash_until = None, 0.0
@@ -285,11 +305,12 @@ def main(argv=None):
                 roll=inst.roll, zone=inst.hold_roll.value, gain=inst.ema_gain.value,
                 brightness=inst.ema_bright.value, cutoff_hz=inst.cutoff_hz, waveform=inst.waveform,
                 space=inst.ema_space.value, hint=now - last_hands_t > cfg.HINT_AFTER_S,
+                pinned=frozenset(inst.pinned), waveforms=tuple(cfg.WAVEFORMS),
                 chord_hand=cfg.CHORD_HAND, expr_hand=cfg.EXPR_HAND,
                 fps=fps, xrun=synth.recent_xrun(), audio_error=synth.error, badges=badges,
                 flash=flash if now < flash_until else None,
             )
-            draw_overlay(frame, hands, view, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, ui_mode)
+            draw_overlay(frame, hands, view, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, ui_mode, hud)
             keybar.visible = ui_mode != "clean"
             if keybar.visible:
                 keybar.draw(frame, s["key"])

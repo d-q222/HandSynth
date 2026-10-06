@@ -61,3 +61,7 @@ class EMA:
     def update(self, x):
         self._value += self.alpha * (x - self._value)
         return self._value
+
+    def set(self, x):
+        """Jump straight to `x` (a slider moved it; no smoothing)."""
+        self._value = float(x)

@@ -234,3 +234,15 @@ def test_expression_dropout_does_not_stutter(inst):
         assert names(inst) == "Am7"
     play(inst, cfg.HOLD_FRAMES, lh=left(INDEX))          # really gone
     assert names(inst) == "Am"
+
+
+def test_pinned_control_ignores_the_hand_until_released(inst):
+    inst.set_control("volume", 0.9)
+    for _ in range(30):
+        inst.update(HandsFrame(left=None, right=right(OPEN, y=0.85)))   # low hand would mean quiet
+    assert inst.ema_gain.value == pytest.approx(0.9)
+    assert inst.params().gain == pytest.approx(cfg.GAIN_RANGE[0] + 0.9 * (cfg.GAIN_RANGE[1] - cfg.GAIN_RANGE[0]))
+    inst.release_control("volume")
+    for _ in range(30):
+        inst.update(HandsFrame(left=None, right=right(OPEN, y=0.85)))
+    assert inst.ema_gain.value < 0.5

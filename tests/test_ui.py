@@ -57,3 +57,27 @@ def test_keybar_hit_testing():
 def test_numerals():
     assert [numeral(d, False) for d in range(1, 8)] == ["I", "ii", "iii", "IV", "V", "vi", "vii°"]
     assert numeral(1, True) == "i" and numeral(2, True) == "II" and numeral(7, True) == "vii"
+
+
+def test_hud_sliders_chips_and_waves_are_clickable():
+    from hand_synth.ui import HudControls
+    calls = []
+    hud = HudControls(on_slide=lambda n, t: calls.append(("slide", n, round(t, 2))),
+                      on_release=lambda n: calls.append(("release", n)),
+                      on_wave=lambda w: calls.append(("wave", w)))
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    draw_overlay(frame, HandsFrame(None, None), state(pinned=frozenset({"space"})), cfg.KEYBAR_HEIGHT,
+                 cfg.HUD_HEIGHT, "full", hud)
+    assert set(hud.sliders) == {"volume", "brightness", "space"} and set(hud.waves) == {"sine", "triangle", "saw"}
+    x0, y0, x1, y1 = hud.sliders["volume"]
+    hud.mouse(cv2.EVENT_LBUTTONDOWN, x0 + (x1 - x0) // 4, (y0 + y1) // 2, 0, None)
+    hud.mouse(cv2.EVENT_MOUSEMOVE, x1 + 50, (y0 + y1) // 2, 0, None)          # drag past the end: clamps
+    hud.mouse(cv2.EVENT_LBUTTONUP, x1 + 50, (y0 + y1) // 2, 0, None)
+    hud.mouse(cv2.EVENT_MOUSEMOVE, x0, (y0 + y1) // 2, 0, None)               # released: no more sliding
+    cx0, cy0, cx1, cy1 = hud.chips["space"]
+    hud.mouse(cv2.EVENT_LBUTTONDOWN, (cx0 + cx1) // 2, (cy0 + cy1) // 2, 0, None)
+    wx0, wy0, wx1, wy1 = hud.waves["saw"]
+    hud.mouse(cv2.EVENT_LBUTTONDOWN, (wx0 + wx1) // 2, (wy0 + wy1) // 2, 0, None)
+    assert calls == [("slide", "volume", 0.25), ("slide", "volume", 1.0), ("release", "space"), ("wave", "saw")]
+    draw_overlay(frame, HandsFrame(None, None), state(), cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, "minimal", hud)
+    assert not hud.sliders                                                    # hidden panel: nothing clickable
