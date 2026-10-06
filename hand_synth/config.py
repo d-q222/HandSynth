@@ -52,7 +52,7 @@ GAIN_RANGE = (0.0, 0.8)             # wrist-y (top of frame = loud)
 WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.25   # expression-hand wrist y (0 top..1 bottom) mapped to GAIN_RANGE ends
 GAIN_START = 0.5                    # 0..1 position in GAIN_RANGE before the expression hand appears
 REVERB_MIX_RANGE = (0.05, 0.6)      # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wet)
-WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x as a fraction of frame width
+WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x, fraction of frame width from the chord hand's side
 REVERB_START = 0.4                  # 0..1 position in REVERB_MIX_RANGE before the expression hand appears
 BRIGHTNESS_START = 0.5              # 0..1 position in CUTOFF_HZ before the expression hand appears
 

@@ -28,8 +28,8 @@ class _Voice:
 
     def __init__(self, freq):
         self.freq = freq
-        self.phase = 0.0        # nominal-frequency phase (bookkeeping; drives the single-oscillator path)
-        self.ph_u = [0.0, 2.1]  # unison oscillator phases, started apart so they don't peak together
+        self.phase = 0.0        # centre oscillator phase (the only oscillator when DETUNE_CENTS = 0)
+        self.ph_u = [1.3, 3.4]  # detuned pair phases, started apart so they don't peak together
         self.level = 0.0
         self.releasing = False
 
@@ -45,11 +45,14 @@ def _shape(name, ph):
 _COMB_DELAYS = (1116, 1188, 1277, 1356)     # Freeverb tunings @44.1k, scaled to the sample rate
 _ALLPASS_DELAYS = (556, 441)
 _COMB_SUM_GAIN = 0.25
+# Unison mix: centre + detuned pair. A pair alone beats to silence once per beat period (the held
+# bass note would drop out every 1-2 s); a strong centre keeps the fundamental steady (±~4 dB shimmer).
+_CENTRE_W, _SIDE_W = 0.6, 0.2
 _FLUSH = 1e-9
 
 
 class _Ring:
-    """Delay line of fixed length d >= block: read the block written d samples ago, then overwrite it."""
+    """Delay line of length d: read the n <= d samples written d samples ago, then overwrite them."""
     __slots__ = ("buf", "d", "w")
 
     def __init__(self, d):
@@ -109,10 +112,12 @@ class NumpySynth:
         c = float(getattr(cfg, "DETUNE_CENTS", 0.0))
         if c > 0:
             self._ratios = (2.0 ** (-c / 1200.0), 2.0 ** (c / 1200.0))
-        # reverb: delays must be >= block so each block only reads samples from earlier blocks
+        # reverb: tuned Freeverb delays, processed in chunks no longer than the shortest delay so
+        # each chunk only reads samples written by earlier chunks (works for any BLOCK_SIZE)
         sc = self.sr / 44100.0
-        self._combs = [_Ring(max(self.block, int(round(d * sc)))) for d in _COMB_DELAYS]
-        self._aps = [_Ring(max(self.block, int(round(d * sc)))) for d in _ALLPASS_DELAYS]
+        self._combs = [_Ring(max(16, int(round(d * sc)))) for d in _COMB_DELAYS]
+        self._aps = [_Ring(max(16, int(round(d * sc)))) for d in _ALLPASS_DELAYS]
+        self._rv_chunk = min(r.d for r in self._combs + self._aps)
         self._fb = min(max(float(getattr(cfg, "REVERB_ROOM", 0.84)), 0.0), 0.95)
         self._damp = min(max(float(getattr(cfg, "REVERB_DAMP", 0.4)), 0.0), 0.99)
         self._comb_zi = [np.zeros(1) for _ in self._combs]
@@ -196,23 +201,28 @@ class NumpySynth:
             if k not in self._voices:
                 self._voices[k] = _Voice(f)
 
-    def _reverb(self, x, wet_target, ramp):
-        """4 parallel damped combs -> 2 series allpasses, vectorised (all delays >= block)."""
-        self._wet_s += (min(max(wet_target, 0.0), 1.0) - self._wet_s) * self._gain_k
-        wet = self._wet_prev + (self._wet_s - self._wet_prev) * ramp
-        self._wet_prev = self._wet_s
-        d = self._damp
+    def _reverb_chunk(self, x):
+        """4 parallel damped combs -> 2 series allpasses (Freeverb), vectorised; len(x) <= every delay."""
+        d, m = self._damp, len(x)
         acc = None
         for i, c in enumerate(self._combs):
-            o = c.read(self.block)
+            o = c.read(m)
             f, self._comb_zi[i] = lfilter([1.0 - d], [1.0, -d], o, zi=self._comb_zi[i])
             c.write(x + f * self._fb)
             acc = o if acc is None else acc + o
         acc *= _COMB_SUM_GAIN
         for a in self._aps:
-            o = a.read(self.block)
+            o = a.read(m)
             a.write(acc + 0.5 * o)
             acc = o - acc
+        return acc
+
+    def _reverb(self, x, wet_target, ramp):
+        self._wet_s += (min(max(wet_target, 0.0), 1.0) - self._wet_s) * self._gain_k
+        wet = self._wet_prev + (self._wet_s - self._wet_prev) * ramp
+        self._wet_prev = self._wet_s
+        m = self._rv_chunk
+        acc = np.concatenate([self._reverb_chunk(x[i:i + m]) for i in range(0, len(x), m)])
         if np.abs(x).max() < _FLUSH and all(np.abs(r.buf).max() < _FLUSH for r in self._combs + self._aps):
             # tail gone: true silence, no denormals
             for r in self._combs + self._aps:
@@ -247,23 +257,20 @@ class NumpySynth:
             env = v.level + rate * k
             np.clip(env, 0.0, 1.0, out=env)
             w0 = TWO_PI * v.freq / self.sr
+            ph = v.phase + w0 * self._n
+            sig = _shape(self._wave, ph)
+            if xfade:
+                sig = sig * (1.0 - ramp) + _shape(new_wave, ph) * ramp
+            v.phase = (v.phase + w0 * n) % TWO_PI
             if self._ratios:
-                sig = None
+                sig = sig * _CENTRE_W
                 for j, r in enumerate(self._ratios):
                     ph = v.ph_u[j] + (w0 * r) * self._n
                     s_ = _shape(self._wave, ph)
                     if xfade:
                         s_ = s_ * (1.0 - ramp) + _shape(new_wave, ph) * ramp
-                    sig = s_ if sig is None else sig + s_
+                    sig += _SIDE_W * s_
                     v.ph_u[j] = (v.ph_u[j] + w0 * r * n) % TWO_PI
-                sig *= 0.5
-                v.phase = (v.phase + w0 * n) % TWO_PI
-            else:
-                ph = v.phase + w0 * self._n
-                sig = _shape(self._wave, ph)
-                if xfade:
-                    sig = sig * (1.0 - ramp) + _shape(new_wave, ph) * ramp
-                v.phase = (v.phase + w0 * n) % TWO_PI
             mix += env * sig
             levels += env
             v.level = float(env[-1])
@@ -286,6 +293,10 @@ class NumpySynth:
         den = [1.0, -(1.0 - a)]
         y, self._zi[0] = lfilter([a], den, mix, zi=self._zi[0])
         y, self._zi[1] = lfilter([a], den, y, zi=self._zi[1])
+        if not self._voices:                            # flush filter state toward exact zero (no denormals)
+            for z in self._zi:
+                if abs(z[0]) < _FLUSH:
+                    z[:] = 0.0
 
         y = self._reverb(y, p.reverb, ramp)
 

@@ -185,3 +185,19 @@ def test_config_typos_are_caught():
     assert any("(True, True)" in e for e in errs)
     assert any("8" in e and "FINGER_MAP" in e for e in errs)
     assert any("different hands" in e for e in errs)
+
+
+@pytest.mark.parametrize("expr", ["Right", "Left"])
+def test_space_grows_outward_for_either_expression_hand(monkeypatch, expr):
+    monkeypatch.setattr(cfg, "EXPR_HAND", expr)
+    monkeypatch.setattr(cfg, "CHORD_HAND", "Left" if expr == "Right" else "Right")
+    aspect = 16 / 9
+
+    def space_at(frac_from_midline):          # 0 = frame centre, 1 = the hand's own outer edge
+        x = aspect * (0.5 + 0.5 * frac_from_midline if expr == "Right" else 0.5 - 0.5 * frac_from_midline)
+        inst = Instrument(standins.fingers_up, standins, key="C")
+        hand = Hand(expr, make_hand(OPEN, expr, center=(x, 0.5)), 0.9)
+        for _ in range(40):
+            inst.update(HandsFrame(left=hand if expr == "Left" else None, right=hand if expr == "Right" else None))
+        return inst.params().reverb
+    assert space_at(0.85) > space_at(0.15)

@@ -110,7 +110,8 @@ class Instrument:
             if mod != KEEP:
                 new["mod"] = mod
             wx, wy = self.feats.wrist_xy(expr_hand.landmarks)
-            self.ema_space.update(clamp01((wx / hands.aspect - cfg.WRIST_X_DRY) / (cfg.WRIST_X_WET - cfg.WRIST_X_DRY)))
+            xf = wx / hands.aspect if cfg.EXPR_HAND == "Right" else 1.0 - wx / hands.aspect   # 0 = midline side
+            self.ema_space.update(clamp01((xf - cfg.WRIST_X_DRY) / (cfg.WRIST_X_WET - cfg.WRIST_X_DRY)))
             self.ema_gain.update(clamp01((wy - cfg.WRIST_Y_QUIET) / (cfg.WRIST_Y_LOUD - cfg.WRIST_Y_QUIET)))
             self.ema_bright.update(clamp01((self.feats.pinch_norm(expr_hand.landmarks) - cfg.PINCH_MIN)
                                            / (cfg.PINCH_MAX - cfg.PINCH_MIN)))

@@ -57,6 +57,8 @@ def main():
     key_i = cfg.KEY_NAMES.index(cfg.KEY)
     degree, flipped, mod = 1, False, "none"
     gain, cutoff = 0.5 * cfg.GAIN_RANGE[1], 2000.0
+    lo, hi = cfg.REVERB_MIX_RANGE
+    reverb = lo + (hi - lo) * cfg.REVERB_START
     wave_i = cfg.WAVEFORMS.index(cfg.WAVEFORM)
     last = None
     voicing = []
@@ -80,7 +82,7 @@ def main():
                 synth.set_chord([midi_to_hz(n) for n in voicing])
                 last = state
             if params_dirty:
-                synth.set_params(SynthParams(gain, cutoff, cfg.WAVEFORMS[wave_i]))
+                synth.set_params(SynthParams(gain, cutoff, cfg.WAVEFORMS[wave_i], reverb=reverb))
                 params_dirty = False
 
             draw(img, keybar, key, degree, flipped, mod, cfg.WAVEFORMS[wave_i], gain, cutoff, synth.recent_xrun())

@@ -2,6 +2,7 @@ import time
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from hand_synth import config as cfg
 from hand_synth.synth.base import SynthParams
@@ -179,9 +180,11 @@ def test_detune_spectrum():
     lo, hi = 440 * 2 ** (-cents / 1200), 440 * 2 ** (cents / 1200)
     sp, f = _spectrum(cents)
     m = sp.max()
-    band = lambda a, b: sp[(f > a) & (f < b)].max()
-    assert band(lo - 0.5, lo + 0.5) > 0.9 * m and band(hi - 0.5, hi + 0.5) > 0.9 * m
-    assert band(439.0, 441.0) < 0.1 * m
+
+    def band(a, b):
+        return sp[(f > a) & (f < b)].max()
+    assert band(439.5, 440.5) > 0.99 * m                     # centre oscillator dominates
+    assert band(lo - 0.5, lo + 0.5) > 0.2 * m and band(hi - 0.5, hi + 0.5) > 0.2 * m
     sp0, f0 = _spectrum(0.0)
     assert abs(f0[sp0.argmax()] - 440.0) < 0.3
     assert sp0[(f0 > 443.0) & (f0 < 2000)].max() < 0.01 * sp0.max()
@@ -207,3 +210,30 @@ def test_block_render_time():
     med = float(np.median(ts)) * 1e3
     print(f"median ms/block: {med:.3f}")
     assert med < 1.5, med
+
+
+def test_unison_never_cancels_the_fundamental():
+    """A detuned pair alone beats to silence once per beat period; the centre oscillator prevents it."""
+    s = NumpySynth(cfg_with(DETUNE_CENTS=7.0))
+    s.set_params(SynthParams(0.8, 8000.0, "sine"))
+    s.set_chord([65.41])                                      # C2 bass note: slowest, most audible beat
+    x = np.abs(s.render_offline(int(3.0 * cfg.SAMPLE_RATE / B))[20 * B:].astype(np.float64))
+    period = int(cfg.SAMPLE_RATE / 65.41) + 1
+    env = np.array([x[i:i + period].max() for i in range(0, len(x) - period, period)])
+    assert env.min() > 0.45 * env.max()                       # worst dip ~ -5 dB, never a drop-out
+
+
+@pytest.mark.parametrize("block", [64, 1024, 2048])
+def test_reverb_identical_for_any_block_size(block):
+    """Reverb is processed in chunks <= the shortest delay, so its impulse response doesn't depend on
+    BLOCK_SIZE (a delay clamped to the block size would turn it into a metallic flutter echo)."""
+    def impulse_response(bs):
+        s = NumpySynth(cfg_with(BLOCK_SIZE=bs))
+        s._wet_s = s._wet_prev = 1.0
+        x = np.zeros(8192)
+        x[0] = 1.0
+        ramp = (np.arange(bs) + 1.0) / bs
+        return np.concatenate([s._reverb(x[i:i + bs], 1.0, ramp) for i in range(0, len(x), bs)])
+    ref, got = impulse_response(256), impulse_response(block)
+    assert np.abs(ref).max() > 0.01
+    np.testing.assert_allclose(got, ref, atol=1e-12)
