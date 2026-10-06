@@ -1,0 +1,28 @@
+[project]
+name = "hand-synth"
+version = "1.0.0"
+description = "Webcam chord instrument: MediaPipe hand tracking -> diatonic chords -> numpy synth"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "mediapipe==0.10.21",   # 1.0.x crashes on macOS (Metal helper) and drops mp.solutions
+    "opencv-python>=4.9",
+    "numpy>=1.26,<2",       # mediapipe 0.10.21 is built against numpy 1.x
+    "sounddevice>=0.4.6",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+hand-synth = "hand_synth.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["hand_synth*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
