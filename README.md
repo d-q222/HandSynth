@@ -203,6 +203,7 @@ Every deviation is deliberate. Each one is listed here so the spec and the code 
 | `cannot read from camera` | Grant camera permission to your terminal app (see Quick start), or try `--camera 1`. |
 | `Audio output failed` | The message lists your devices. Set `AUDIO_DEVICE` in config to one of them. |
 | Red **XRUN** badge | The audio buffer is underrunning. Raise `BLOCK_SIZE` to 512. |
+| App exits or misbehaves right after "camera ..." | Check `models/mediapipe.log`. MediaPipe's own startup messages go there instead of cluttering the terminal. |
 | Chords flicker | Raise `HOLD_FRAMES`. If they feel sluggish, lower it. |
 | Hands get the wrong roles | Keep each hand on its own side of the screen. A lone hand switches role when it crosses the centre line. To swap which side plays chords, swap `CHORD_HAND` / `EXPR_HAND`. |
 | Major/minor flips too easily or not at all | Tune `ROLL_MINOR_DEG` and `ROLL_DEADBAND_DEG`. The HUD shows the live roll angle. |

@@ -8,8 +8,11 @@ would report ~29°). x spans 0..width/height (≈1.78 for 16:9).
 The frame passed to `process` must already be mirrored when config.MIRROR is set; MediaPipe's
 handedness assumes a selfie (mirrored) image, so labels then match the user's real hands.
 """
+import os
+import sys
 import time
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,20 +56,41 @@ def ensure_model(model_path: str, url: str) -> Path:
     return path
 
 
+@contextmanager
+def native_stderr_to(path: Path):
+    """Send C/C++ stderr (MediaPipe's GL/TFLite/absl startup chatter) to `path` for the duration.
+    Python exceptions still propagate normally; a native crash leaves its message in the file."""
+    sys.stderr.flush()
+    saved = os.dup(2)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as log:
+        os.dup2(log.fileno(), 2)
+        try:
+            yield
+        finally:
+            sys.stderr.flush()
+            os.dup2(saved, 2)
+            os.close(saved)
+
+
 class Tracker:
     def __init__(self, model_path: str, model_url: str, max_hands=2, min_conf=0.6, min_tracking_conf=0.5,
                  handedness="position"):
         self.handedness = handedness
         self._last_single = None        # label of the last lone hand (midline dead band)
+        model = ensure_model(model_path, model_url)
+        self.log_path = model.parent / "mediapipe.log"
+        self._warm = False              # first detect_for_video also logs; keep it quiet too
         opts = vision.HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(ensure_model(model_path, model_url))),
+            base_options=BaseOptions(model_asset_path=str(model)),
             running_mode=vision.RunningMode.VIDEO,
             num_hands=max_hands,
             min_hand_detection_confidence=min_conf,
             min_hand_presence_confidence=min_conf,
             min_tracking_confidence=min_tracking_conf,
         )
-        self._landmarker = vision.HandLandmarker.create_from_options(opts)
+        with native_stderr_to(self.log_path):
+            self._landmarker = vision.HandLandmarker.create_from_options(opts)
         self._last_ts = -1
 
     def process(self, frame_bgr) -> HandsFrame:
@@ -75,7 +99,13 @@ class Tracker:
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         ts = max(int(time.monotonic() * 1000), self._last_ts + 1)   # VIDEO mode needs strictly increasing ms
         self._last_ts = ts
-        res = self._landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), ts)
+        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        if self._warm:
+            res = self._landmarker.detect_for_video(image, ts)
+        else:
+            with native_stderr_to(self.log_path):
+                res = self._landmarker.detect_for_video(image, ts)
+            self._warm = True
 
         found = []
         for lms, handed in zip(res.hand_landmarks, res.handedness):
