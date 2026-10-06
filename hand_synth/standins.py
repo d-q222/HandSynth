@@ -117,6 +117,8 @@ def _num(x) -> float:
 
 
 def _check_fingers(r):
+    if isinstance(r, (str, bytes)):
+        raise TypeError(f"expected 5 booleans, got a string {r!r}")
     r = tuple(r)
     if len(r) != 5:
         raise ValueError(f"expected 5 values, got {len(r)}")

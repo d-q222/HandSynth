@@ -138,3 +138,9 @@ def test_manual_bad_values_at_play_time_fall_back(monkeypatch):
     monkeypatch.setattr(features, "roll_deg", lambda lm: np.float32(12.5))
     ns, status = standins.resolve_features()
     assert status["roll_deg"] == "manual" and ns.roll_deg(standins.PROBE_LANDMARKS) == 12.5
+
+
+def test_string_return_is_rejected(monkeypatch):
+    monkeypatch.setattr(fingers, "fingers_up", lambda lm, label: "TFFFF")
+    fn, status = standins.resolve_fingers()
+    assert status.startswith("stand-in (fingers.py error: TypeError")
