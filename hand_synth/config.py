@@ -83,7 +83,7 @@ MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
 FIXTURE_DIR = "fixtures/landmarks"             # where 'r' dumps landmark JSON
 
 # ── UI ───────────────────────────────────────────────────────────────────────
-WINDOW_NAME = "hand synth"
+WINDOW_NAME = "Hand Synth"
 KEYBAR_HEIGHT = 44              # px, 12 key buttons across the top of the frame
 UI_MODE = "full"                # "full" | "minimal" | "clean"   (cycle live with 'h')
 UI_MODES = ["full", "minimal", "clean"]
