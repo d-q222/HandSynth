@@ -133,20 +133,28 @@ def parse_args(argv):
     p.add_argument("--camera", default=str(cfg.CAMERA_INDEX),
                    help="camera index, or a video file path (default: config.CAMERA_INDEX)")
     p.add_argument("--key", default=cfg.KEY, choices=cfg.KEY_NAMES, help="startup key")
+    p.add_argument("--ui", default=cfg.UI_MODE, choices=cfg.UI_MODES, help="overlay detail (cycle live with h)")
     return p.parse_args(argv)
 
 
 def open_camera(source: str):
-    cap = cv2.VideoCapture(int(source) if source.isdigit() else source)
-    if source.isdigit():
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg.CAMERA_SIZE[0])
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg.CAMERA_SIZE[1])
-    ok, frame = cap.read() if cap.isOpened() else (False, None)
-    if not ok:
+    """Open the camera. On first launch macOS shows a permission prompt and the first open fails
+    immediately, so keep retrying for CAMERA_WAIT_S to give the user time to click Allow."""
+    deadline = time.monotonic() + (cfg.CAMERA_WAIT_S if source.isdigit() else 0)
+    while True:
+        cap = cv2.VideoCapture(int(source) if source.isdigit() else source)
+        if source.isdigit():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg.CAMERA_SIZE[0])
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg.CAMERA_SIZE[1])
+        ok, frame = cap.read() if cap.isOpened() else (False, None)
+        if ok:
+            return cap, frame
         cap.release()
-        sys.exit(f"hand-synth: cannot read from camera {source!r} "
-                 "(check System Settings → Privacy & Security → Camera for your terminal app).")
-    return cap, frame
+        if time.monotonic() >= deadline:
+            sys.exit(f"hand-synth: cannot read from camera {source!r} "
+                     "(allow camera access for your terminal app in System Settings → Privacy & Security → Camera).")
+        print("waiting for camera (allow access if macOS is asking)...")
+        time.sleep(1.0)
 
 
 def main(argv=None):
@@ -181,6 +189,7 @@ def main(argv=None):
     cv2.namedWindow(cfg.WINDOW_NAME)
     cv2.setMouseCallback(cfg.WINDOW_NAME, keybar.mouse)
 
+    ui_mode = args.ui
     flash, flash_until = None, 0.0
     fps, last_t = 0.0, time.monotonic()
     try:
@@ -211,8 +220,10 @@ def main(argv=None):
                 fps=fps, xrun=synth.recent_xrun(), audio_error=synth.error, badges=badges,
                 flash=flash if now < flash_until else None,
             )
-            draw_overlay(frame, hands, view, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT)
-            keybar.draw(frame, s["key"])
+            draw_overlay(frame, hands, view, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, ui_mode)
+            keybar.visible = ui_mode != "clean"
+            if keybar.visible:
+                keybar.draw(frame, s["key"])
             cv2.imshow(cfg.WINDOW_NAME, frame)
             frame = None
 
@@ -228,6 +239,9 @@ def main(argv=None):
                     print(f"saved {p.relative_to(REPO_ROOT)}")
             elif k == ord("w"):
                 inst.cycle_waveform()
+            elif k == ord("h"):
+                ui_mode = cfg.UI_MODES[(cfg.UI_MODES.index(ui_mode) + 1) % len(cfg.UI_MODES)]
+                flash, flash_until = f"view: {ui_mode}", now + cfg.FLASH_S
             elif arrow in ("left", "right"):
                 step = 1 if arrow == "right" else -1
                 pending["key"] = cfg.KEY_NAMES[(cfg.KEY_NAMES.index(s["key"]) + step) % len(cfg.KEY_NAMES)]

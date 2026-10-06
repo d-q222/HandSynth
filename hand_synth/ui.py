@@ -57,6 +57,7 @@ class KeyBar:
         self.height = height
         self._width = 0
         self._hover = None
+        self.visible = True
 
     def _index_at(self, x, y):
         if self._width <= 0 or not (0 <= y < self.height) or not (0 <= x < self._width):
@@ -81,21 +82,31 @@ class KeyBar:
             _center_text(frame, name, (x0 + x1) // 2, self.height // 2, 0.75, color, 1)
 
     def mouse(self, event, x, y, flags, param):
-        i = self._index_at(x, y)
+        i = self._index_at(x, y) if self.visible else None
         if event == cv2.EVENT_MOUSEMOVE:
             self._hover = i
         elif event == cv2.EVENT_LBUTTONDOWN and i is not None:
             self.on_select(self.key_names[i])
 
 
-def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, hud_height: int):
+def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, hud_height: int, mode="full"):
+    """mode: "full" (everything) | "minimal" (key bar, hands, chord) | "clean" (chord name only).
+    Audio alerts show in every mode."""
     h, w = frame.shape[:2]
-    for hand in hands.hands():
-        _draw_hand(frame, hand, h, CHORD_COLOR if hand.label == s.chord_hand else EXPR_COLOR)
+    if mode != "clean":
+        for hand in hands.hands():
+            _draw_hand(frame, hand, h, CHORD_COLOR if hand.label == s.chord_hand else EXPR_COLOR)
 
     # Big chord name under the key bar
-    y = keybar_height + 70
+    y = (keybar_height if mode != "clean" else 0) + 70
     _text(frame, s.chord, (24, y), 2.2, WHITE, 3)
+    if mode != "full":
+        alerts = [a for a in ("AUDIO ERROR" if s.audio_error else None, "XRUN" if s.xrun else None) if a]
+        if alerts:
+            _text(frame, "  ".join(alerts), (w - 260, y - 30), 0.7, ALERT, 2)
+        if s.flash:
+            _center_text(frame, s.flash, w // 2, h - 40, 0.8, ACCENT, 2)
+        return
     sub = f"key {s.key}"
     if s.degree is not None:
         sub += f"   degree {_roman(s.degree)}" + ("   flipped" if s.flipped else "")
@@ -132,7 +143,7 @@ def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, 
     _text(frame, f"wave  {s.waveform}", (x, top + 38), 0.6, WHITE, 1)
     _text(frame, f"{s.fps:4.0f} fps", (x, top + 66), 0.6, GREY, 1)
     _text(frame, "click a key or <- ->", (x, top + 92), 0.45, GREY, 1)
-    _text(frame, "w wave  r record  q quit", (x, top + 110), 0.45, GREY, 1)
+    _text(frame, "w wave  h hide  r rec  q quit", (x, top + 110), 0.45, GREY, 1)
 
     if s.flash:
         _center_text(frame, s.flash, w // 2, top - 30, 0.8, ACCENT, 2)

@@ -64,6 +64,7 @@ AUDIO_DEVICE = None             # None = system default output; or an index/name
 # ── Camera / tracking ────────────────────────────────────────────────────────
 CAMERA_INDEX = 0
 CAMERA_SIZE = (1280, 720)       # requested capture size (camera may pick the nearest)
+CAMERA_WAIT_S = 15.0            # keep retrying the camera this long (first-run permission prompt)
 MAX_HANDS = 2
 MIN_DETECTION_CONF = 0.6
 MIN_TRACKING_CONF = 0.5
@@ -75,5 +76,7 @@ FIXTURE_DIR = "fixtures/landmarks"             # where 'r' dumps landmark JSON
 # ── UI ───────────────────────────────────────────────────────────────────────
 WINDOW_NAME = "hand synth"
 KEYBAR_HEIGHT = 48              # px, 12 key buttons across the top of the frame
+UI_MODE = "full"                # "full" | "minimal" | "clean"   (cycle live with 'h')
+UI_MODES = ["full", "minimal", "clean"]
 HUD_HEIGHT = 120                # px, translucent info strip along the bottom of the frame
 FLASH_S = 1.5                   # how long transient messages ("saved fixture") stay on screen
