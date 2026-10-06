@@ -248,8 +248,9 @@ def test_balanced_rules_hold_while_voice_leading():
 
 def test_balanced_examples():
     assert _bal("C", 1, False, "none") == [36, 55, 60, 64]      # C2 G3 C4 E4
-    assert _bal("C", 1, False, "add7") == [36, 55, 59, 64]      # C2 G3 B3 E4: no C over the B
-    assert _bal("C", 1, False, "add9") == [36, 52, 62, 67]      # C2 E3 D4 G4: 9th over the 3rd
+    assert _bal("C", 1, False, "add7") == [36, 52, 55, 59]      # C2 E3 G3 B3: triad, 7th on top
+    assert _bal("C", 1, False, "add9") == [36, 52, 60, 67, 74]  # C2 E3 C4 G4 D5: 9th above the triad
+    assert _bal("C", 1, False, "add6") == [36, 55, 64, 69]      # C2 G3 E4 A4: 6th on top
     assert _bal("C", 1, False, "none", bass=False) == _bal("C", 1, False, "none")[1:]
 
 
@@ -305,8 +306,8 @@ def test_balanced_is_less_rough_than_close():
         b = _roughness(_bal(key, d, f, m))
         c = _roughness(music.chord_voicing(key, d, f, m, None, style="close"))
         bal, close, worst = bal + b, close + c, max(worst, b / c)
-    assert bal < 0.5 * close                                     # >= 50% less rough on average (58% now)
-    assert worst < 1.05                                          # never rougher (max ratio 1.00 now)
+    assert bal < 0.5 * close                                     # >= 50% less rough on average
+    assert worst < 1.05                                          # never meaningfully rougher
 
 
 def test_balanced_fast():
@@ -320,8 +321,8 @@ def test_balanced_fast():
     assert statistics.median(times) < 0.002
 
 
-def test_added_notes_sit_above_the_root():
-    """6ths, 7ths and 9ths are never tucked under a root in the upper voices (owner's request)."""
+def test_added_notes_stack_above_the_triad():
+    """The triad is the chord; 6ths, 7ths and 9ths go on top of it (owner's request)."""
     for key in config.KEY_NAMES:
         for deg in range(1, 8):
             for fl in (False, True):
@@ -329,8 +330,8 @@ def test_added_notes_sit_above_the_root():
                     raw = music.chord_midi(key, deg, fl, mod)
                     added = {n % 12 for n in raw if n - raw[0] >= 9}
                     v = music.chord_voicing(key, deg, fl, mod, None)
-                    roots_up = [n for n in v[1:] if n % 12 == v[0] % 12]
+                    triad_up = [n for n in v[1:] if n % 12 not in added]
                     assert v[0] % 12 == raw[0] % 12                       # root in the bass
                     assert all(n > v[0] for n in v[1:])                    # everything above it
-                    if roots_up:
-                        assert all(n > roots_up[-1] for n in v[1:] if n % 12 in added), (key, deg, fl, mod, v)
+                    if triad_up:
+                        assert all(n > triad_up[-1] for n in v[1:] if n % 12 in added), (key, deg, fl, mod, v)

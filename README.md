@@ -138,12 +138,13 @@ extra audio stack, taking about 0.1 ms of CPU per 5.8 ms audio block.
   - **Spacing:** wide intervals low and close intervals high, like the overtone series.
   - **No clashes:** no minor 2nds or minor 9ths anywhere. For example, a maj7 never doubles the root a half step above the 7th.
   - **Low interval limits:** intervals that turn muddy low down are kept above their limits; a major 2nd, for example, stays above E♭3.
-  - **9th placement:** the 9th sits above the 3rd.
+  - **Added notes go on top:** the triad (root, 3rd, 5th) is the chord, and the added notes (7th, 9th, 6th) stack above it.
+    Cmaj7 is C2 · E3 G3 B3, and C6 is C2 · G3 E4 A4.
   - **5th dropped only when needed:** the 5th, the least characteristic note, is dropped only when that makes the chord more balanced.
   - **Voice leading:** each new chord is chosen to move as little as possible from the last, holding common tones. In C, the progression C → F → G → Am goes
     C2 G3 C4 E4 → F2 A3 C4 F4 → G2 G3 B3 D4 → A2 A3 C4 E4.
   - **Measured result:** across all 1,008 key × degree × flip × modifier combinations, a psychoacoustic roughness model
-    (Plomp–Levelt) rates these voicings 58% smoother on average than a plain close voicing, and none rougher.
+    (Plomp–Levelt) rates these voicings 54% smoother on average than a plain close voicing, and none rougher.
     `"close"` keeps the old tight voice-led cluster.
 - **Unison.** Each note is a centre oscillator plus a pair detuned by ±`DETUNE_CENTS`, for a slow chorus shimmer. The centre keeps the fundamental steady, so the bass never beats out.
 - **Reverb.** A Freeverb-style room (`REVERB_ROOM`, `REVERB_DAMP`). Its mix follows the right

@@ -166,7 +166,8 @@ def _upper_sets(intervals):
 
 def _voicing_score(upper, bass, ninth_over, prev, center, added=frozenset()):
     """(hard breaches, soft score) for sorted `upper` voices over `bass`. `added` = pitch classes
-    of added notes (6th/7th/9th), which must sit above every root in the upper voices."""
+    of added notes (6th/7th/9th), which stack above every triad tone (root, 3rd/sus, 5th) in the
+    upper voices: the triad is the chord, the added notes go on top of it."""
     notes = [bass] + upper
     hard, soft = 0, 0.0
     n = len(notes)
@@ -199,9 +200,9 @@ def _voicing_score(upper, bass, ninth_over, prev, center, added=frozenset()):
         if ninth and thirds and ninth[0] < max(thirds):
             hard += 1
     if added:
-        roots_up = [u for u in upper if u % 12 == bass % 12]
-        if roots_up and any(u % 12 in added and u < roots_up[-1] for u in upper):
-            hard += 1                                       # added notes go above the root
+        triad_up = [u for u in upper if u % 12 not in added]
+        if triad_up and any(u % 12 in added and u < triad_up[-1] for u in upper):
+            hard += 1                                       # added notes stack above the triad
     soft += _W_REGISTER * abs(sum(upper) / len(upper) - center)
     soft += _W_SPAN * (upper[-1] - upper[0])
     if prev:
@@ -218,7 +219,7 @@ def balanced_voicing(intervals, root_midi, prev_upper, *, bass_midi, upper_range
     Brute force over every placement of each candidate upper pitch-class set within
     upper_range. Hard rules: no minor 2nd/9th between any two voices, low interval
     limits on adjacent voices, 9th above every 3rd, added notes (6/7/9) above every
-    upper-voice root, adjacent upper voices within an
+    triad tone, adjacent upper voices within an
     octave, bass to lowest upper voice a 5th..two octaves. Soft score: wide-low /
     narrow-high spacing, exposed whole steps, distance from register_center, movement
     from prev_upper (when voice_leading), omitted 5th.
