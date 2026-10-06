@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=1.26,<2",       # mediapipe 0.10.21 is built against numpy 1.x
     "sounddevice>=0.4.6",
     "scipy>=1.11",
+    "pillow>=10.1",         # TrueType overlay text
 ]
 
 [project.optional-dependencies]

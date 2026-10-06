@@ -125,3 +125,29 @@ def test_tracker_assign_breaks_duplicate_labels():
     b = Hand("Right", make_hand(OPEN, "Right", center=(1.3, 0.5)), 0.9)
     hf = _assign([b, a], 16 / 9)
     assert hf.left is a and hf.right is b
+
+
+def test_dump_fixture_never_overwrites(tmp_path, monkeypatch):
+    import json
+    import hand_synth.main as m
+    monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
+    hands = HandsFrame(left=left(OPEN), right=None)
+    first = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
+    second = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
+    assert first.name == "left_TTTTT_001.json" and second.name == "left_TTTTT_002.json"
+    second_bytes = second.read_bytes()
+    first.rename(first.with_name("left_FTTTT_001.json"))        # reviewed + renamed
+    third = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
+    assert third != second and second.read_bytes() == second_bytes   # freed slot reused, nothing clobbered
+    d = json.loads(third.read_text())
+    assert d["label"] == "Left" and len(d["landmarks"]) == 21 and d["source"] == "recorded"
+
+
+def test_fixture_filename_tag_is_the_truth(tmp_path, monkeypatch):
+    import json
+    import conftest
+    (tmp_path / "left_FTTTT_001.json").write_text(json.dumps(
+        {"label": "Left", "landmarks": [[0, 0, 0]] * 21, "expected": {"fingers": [True] * 5}}))
+    monkeypatch.setattr(conftest, "FIXTURE_ROOT", tmp_path)
+    [param] = conftest.load_fixtures("fingers")
+    assert param.values[0]["expected"]["fingers"] == [False, True, True, True, True]

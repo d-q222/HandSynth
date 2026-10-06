@@ -5,6 +5,7 @@ Landmarks: 21 (x, y, z) tuples, height-normalized aspect-corrected coords of the
 mirrored frame (see tracking.py).
 """
 import math
+import numbers
 from types import SimpleNamespace
 
 # ── finger detection (joint geometry; independent of image rotation) ─────────
@@ -109,24 +110,51 @@ _STANDIN_FEATURES = {"hand_size": hand_size, "wrist_xy": wrist_xy, "pinch_norm":
                      "roll_deg": roll_deg, "feature_vector": feature_vector}
 
 
-def _is_num(x):
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+def _num(x) -> float:
+    if isinstance(x, bool) or not isinstance(x, numbers.Real) or not math.isfinite(x):
+        raise ValueError(f"expected a finite number, got {x!r}")
+    return float(x)
 
 
-_FEATURE_VALID = {
-    "hand_size": lambda r: _is_num(r) and r > 0,
-    "wrist_xy": lambda r: len(r) == 2 and all(_is_num(v) for v in r),
-    "pinch_norm": _is_num,
-    "roll_deg": _is_num,
-    "feature_vector": lambda r: len(r) == 63 and all(_is_num(v) for v in r),
+def _check_fingers(r):
+    r = tuple(r)
+    if len(r) != 5:
+        raise ValueError(f"expected 5 values, got {len(r)}")
+    return tuple(bool(v) for v in r)
+
+
+def _check_size(r):
+    r = _num(r)
+    if r <= 0:
+        raise ValueError(f"hand_size must be > 0, got {r}")
+    return r
+
+
+def _check_seq(n):
+    def check(r):
+        r = [_num(v) for v in r]
+        if len(r) != n:
+            raise ValueError(f"expected {n} values, got {len(r)}")
+        return r
+    return check
+
+
+# Each check normalizes a return value (numpy scalars, lists → plain Python) or raises.
+_FEATURE_CHECK = {
+    "hand_size": _check_size,
+    "wrist_xy": lambda r: tuple(_check_seq(2)(r)),
+    "pinch_norm": _num,
+    "roll_deg": _num,
+    "feature_vector": _check_seq(63),
 }
 
 
-def _guard(manual, standin):
-    """Call `manual`; on any exception fall back to `standin` and record the error."""
+def _guard(manual, standin, check):
+    """Call `manual` and validate its result; on any exception or bad value, answer with
+    `standin` for this call and record why. The live loop never sees a crash or a bad value."""
     def wrapper(*args, **kwargs):
         try:
-            return manual(*args, **kwargs)
+            return check(manual(*args, **kwargs))
         except Exception as e:  # noqa: BLE001 - never crash the app from user code
             wrapper.last_error = f"{type(e).__name__}: {e}"
             return standin(*args, **kwargs)
@@ -139,14 +167,12 @@ def resolve_fingers():
     """-> (fingers_up callable, status). status: "manual" | "stand-in" | "stand-in (fingers.py error: ...)"."""
     from hand_synth import fingers
     try:
-        r = fingers.fingers_up(PROBE_LANDMARKS, "Right")
-        if not (isinstance(r, tuple) and len(r) == 5):
-            raise TypeError(f"expected a 5-tuple, got {r!r}")
+        _check_fingers(fingers.fingers_up(PROBE_LANDMARKS, "Right"))
     except NotImplementedError:
         return fingers_up, "stand-in"
     except Exception as e:  # noqa: BLE001
         return fingers_up, f"stand-in (fingers.py error: {type(e).__name__}: {e})"
-    return _guard(fingers.fingers_up, fingers_up), "manual"
+    return _guard(fingers.fingers_up, fingers_up, _check_fingers), "manual"
 
 
 def resolve_features():
@@ -154,16 +180,15 @@ def resolve_features():
     from hand_synth import features
     ns, status = SimpleNamespace(), {}
     for name, standin in _STANDIN_FEATURES.items():
-        fn = getattr(features, name, None)
+        fn, check = getattr(features, name, None), _FEATURE_CHECK[name]
         try:
             if fn is None:
                 raise NotImplementedError
-            if not _FEATURE_VALID[name](fn(PROBE_LANDMARKS)):
-                raise ValueError("implausible return value")
+            check(fn(PROBE_LANDMARKS))
         except NotImplementedError:
             ns.__dict__[name], status[name] = standin, "stand-in"
         except Exception as e:  # noqa: BLE001
             ns.__dict__[name], status[name] = standin, f"stand-in (features.py error: {type(e).__name__}: {e})"
         else:
-            ns.__dict__[name], status[name] = _guard(fn, standin), "manual"
+            ns.__dict__[name], status[name] = _guard(fn, standin, check), "manual"
     return ns, status

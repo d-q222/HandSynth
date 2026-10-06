@@ -108,15 +108,17 @@ class Instrument:
 
 def dump_fixture(hands: HandsFrame, fingers_fn, roll_fn) -> list[Path]:
     """Write each visible hand to FIXTURE_DIR/recorded/ as JSON (tests + future ML data).
-    The expected tuple is the stand-in's reading at record time; check it and rename if wrong."""
+    The filename tag (left_TFFFF_007.json) is the expected tuple the tests use. It starts as the
+    stand-in's reading at record time; if that reading is wrong, rename the file."""
     out_dir = REPO_ROOT / cfg.FIXTURE_DIR / "recorded"
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for hand in hands.hands():
         fs = fingers_fn(hand.landmarks, hand.label)
         tag = "".join("T" if f else "F" for f in fs)
-        n = 1 + len(list(out_dir.glob(f"{hand.label.lower()}_{tag}_*.json")))
-        path = out_dir / f"{hand.label.lower()}_{tag}_{n:03d}.json"
+        n = 1
+        while (path := out_dir / f"{hand.label.lower()}_{tag}_{n:03d}.json").exists():
+            n += 1                          # never overwrite (files get renamed after review)
         path.write_text(json.dumps({
             "label": hand.label,
             "landmarks": [list(p) for p in hand.landmarks],
@@ -168,9 +170,9 @@ def main(argv=None):
     feats, feature_status = standins.resolve_features()
     badges = []
     if fingers_status != "manual":
-        badges.append("STAND-IN fingers")
+        badges.append("Stand-in · fingers")
     if any(v != "manual" for v in feature_status.values()):
-        badges.append("STAND-IN features")
+        badges.append("Stand-in · features")
     for name, status in [("fingers_up", fingers_status), *feature_status.items()]:
         print(f"  {name:15s} {status}")
 

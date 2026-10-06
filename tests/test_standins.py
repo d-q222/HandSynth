@@ -113,3 +113,28 @@ def test_resolve_features_runtime_fallback(monkeypatch):
     up = fc.make_hand(fc.OPEN)
     assert ns.roll_deg(up) == pytest.approx(0, abs=1)
     assert ns.roll_deg.last_error.startswith("RuntimeError")
+
+
+def test_manual_bad_values_at_play_time_fall_back(monkeypatch):
+    """A manual function that passes the startup probe but later returns a bad value must not
+    reach the live loop (None → stand-in), and numpy/list results are normalized."""
+    import numpy as np
+    calls = []
+
+    def sometimes_none(lm, label):
+        calls.append(1)
+        return None if len(calls) > 1 else [np.True_, True, 1, 0, False]
+    monkeypatch.setattr(fingers, "fingers_up", sometimes_none)
+    fn, status = standins.resolve_fingers()
+    assert status == "manual"
+    assert fn(standins.PROBE_LANDMARKS, "Right") == (True,) * 5     # stand-in answered
+    assert fn.last_error is not None
+
+    monkeypatch.setattr(fingers, "fingers_up", lambda lm, label: [np.True_, True, 1, 0, False])
+    fn, _ = standins.resolve_fingers()
+    out = fn(standins.PROBE_LANDMARKS, "Right")
+    assert out == (True, True, True, False, False) and isinstance(out, tuple) and hash(out)
+
+    monkeypatch.setattr(features, "roll_deg", lambda lm: np.float32(12.5))
+    ns, status = standins.resolve_features()
+    assert status["roll_deg"] == "manual" and ns.roll_deg(standins.PROBE_LANDMARKS) == 12.5

@@ -108,7 +108,10 @@ class NumpySynth:
             return
         with self._lock:
             self._target.fading = True
-        time.sleep(self._cfg.STOP_FADE_S + 2 * self._dt)
+        deadline = time.monotonic() + self._cfg.STOP_FADE_S + 0.5
+        while self._fade > 0.0 and time.monotonic() < deadline:   # wait for the fade itself, not a guess
+            time.sleep(0.005)
+        time.sleep(2 * self._dt)                                 # let the last silent block play out
         try:
             s.stop()
             s.close()

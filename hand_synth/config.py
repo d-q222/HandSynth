@@ -75,8 +75,8 @@ FIXTURE_DIR = "fixtures/landmarks"             # where 'r' dumps landmark JSON
 
 # ── UI ───────────────────────────────────────────────────────────────────────
 WINDOW_NAME = "hand synth"
-KEYBAR_HEIGHT = 48              # px, 12 key buttons across the top of the frame
+KEYBAR_HEIGHT = 44              # px, 12 key buttons across the top of the frame
 UI_MODE = "full"                # "full" | "minimal" | "clean"   (cycle live with 'h')
 UI_MODES = ["full", "minimal", "clean"]
-HUD_HEIGHT = 120                # px, translucent info strip along the bottom of the frame
+HUD_HEIGHT = 112                # px, translucent info strip along the bottom of the frame
 FLASH_S = 1.5                   # how long transient messages ("saved fixture") stay on screen
