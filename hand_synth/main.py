@@ -216,9 +216,16 @@ def parse_args(argv):
     return p.parse_args(argv)
 
 
-def open_camera(source: str):
-    """Open the camera. On first launch macOS shows a permission prompt and the first open fails
-    immediately, so keep retrying for CAMERA_WAIT_S to give the user time to click Allow."""
+CAMERA_SETTINGS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+CAMERA_HELP = ("allow camera access for Hand Synth (or the terminal app you launched it from) in "
+               "System Settings → Privacy & Security → Camera")
+
+
+def open_camera(source: str, on_wait=None):
+    """Open the camera -> (cap, first frame), or (None, None) if it never delivers a frame.
+    On first launch macOS shows a permission prompt and the first open fails immediately, so keep
+    retrying for CAMERA_WAIT_S. `on_wait()` runs between attempts (and paces them, ~1 s); it returns
+    True to give up early (the user quit)."""
     deadline = time.monotonic() + (cfg.CAMERA_WAIT_S if source.isdigit() else 0)
     while True:
         cap = cv2.VideoCapture(int(source) if source.isdigit() else source)
@@ -230,10 +237,48 @@ def open_camera(source: str):
             return cap, frame
         cap.release()
         if time.monotonic() >= deadline:
-            sys.exit(f"hand-synth: cannot read from camera {source!r} "
-                     "(allow camera access for your terminal app in System Settings → Privacy & Security → Camera).")
+            return None, None
         print("waiting for camera (allow access if macOS is asking)...")
-        time.sleep(1.0)
+        if on_wait is None:
+            time.sleep(1.0)
+        elif on_wait():
+            return None, None
+
+
+def _window_closed() -> bool:
+    return cv2.getWindowProperty(cfg.WINDOW_NAME, cv2.WND_PROP_VISIBLE) < 1
+
+
+def _wait_screen() -> bool:
+    """Window card while the camera warms up / macOS asks for permission. True = user quit."""
+    from .ui import status_card
+    cv2.imshow(cfg.WINDOW_NAME, status_card(cfg.CAMERA_SIZE, "Waiting for the camera", [
+        "If macOS asks whether Hand Synth can use the camera, click Allow.",
+        "Press Q to quit."]))
+    for _ in range(10):
+        if cv2.waitKeyEx(100) in (ord("q"), 27) or _window_closed():
+            return True
+    return False
+
+
+def _camera_unavailable(source: str):
+    """Explain in the window (not just a log file) and offer the settings pane; then exit."""
+    import subprocess
+    from .ui import ALERT, status_card
+    card = status_card(cfg.CAMERA_SIZE, "Camera unavailable", [
+        "Hand Synth couldn't read from the camera.",
+        "Open System Settings › Privacy & Security › Camera and turn on Hand Synth",
+        "(or your terminal app), then open Hand Synth again.",
+        "S  open Camera settings        Q  quit"], accent=ALERT)
+    while True:
+        cv2.imshow(cfg.WINDOW_NAME, card)
+        k = cv2.waitKeyEx(100)
+        if k == ord("s") and sys.platform == "darwin":
+            subprocess.run(["open", CAMERA_SETTINGS_URL], check=False)
+        if k in (ord("q"), 27) or _window_closed():
+            break
+    cv2.destroyAllWindows()
+    sys.exit(f"hand-synth: cannot read from camera {source!r} ({CAMERA_HELP}).")
 
 
 def main(argv=None):
@@ -255,7 +300,10 @@ def main(argv=None):
     for name, status in [("fingers_up", fingers_status), *feature_status.items()]:
         print(f"  {name:15s} {status}")
 
-    cap, frame = open_camera(args.camera)
+    cv2.namedWindow(cfg.WINDOW_NAME)
+    cap, frame = open_camera(args.camera, on_wait=_wait_screen)
+    if cap is None:
+        _camera_unavailable(args.camera)
     print(f"  camera          {frame.shape[1]}x{frame.shape[0]} -> window width {cfg.CAMERA_SIZE[0]}")
     synth = NumpySynth(cfg)
     try:
@@ -276,7 +324,6 @@ def main(argv=None):
     def on_mouse(*event):                 # runs inside waitKey, on the main thread
         keybar.mouse(*event)
         hud.mouse(*event)
-    cv2.namedWindow(cfg.WINDOW_NAME)
     cv2.setMouseCallback(cfg.WINDOW_NAME, on_mouse)
 
     ui_mode = args.ui

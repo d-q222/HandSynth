@@ -78,7 +78,7 @@ AUDIO_DEVICE = None             # None = system default output; or an index/name
 # ── Camera / tracking ────────────────────────────────────────────────────────
 CAMERA_INDEX = 0
 CAMERA_SIZE = (1280, 720)       # requested capture size; frames are scaled to this width for display
-CAMERA_WAIT_S = 15.0            # keep retrying the camera this long (first-run permission prompt)
+CAMERA_WAIT_S = 30.0            # keep retrying the camera this long (first-run permission prompt)
 MAX_HANDS = 2
 MIN_DETECTION_CONF = 0.6
 MIN_TRACKING_CONF = 0.5

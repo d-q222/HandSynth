@@ -357,6 +357,22 @@ def _hud(frame, s: OverlayState, x0, y0, x1, y1, controls=None):
     draw_text(frame, f"{s.fps:.0f} fps", cx[3] + mw, yt + 70, 11, TEXT_3, anchor="rt")
 
 
+def status_card(size, title: str, lines: list[str], accent=TEXT) -> np.ndarray:
+    """A full window frame with one centred message card (camera waiting / camera unavailable)."""
+    w, h = size
+    y = np.linspace(0, 1, h)[:, None, None]
+    frame = ((np.array([46, 40, 36]) * (1 - y) + np.array([24, 20, 18]) * y) * np.ones((1, w, 1))).astype(np.uint8)
+    tw, th = text_size(title, 34, "bold")
+    lw = max([text_size(t, 17, "medium")[0] for t in lines] + [tw])
+    cw, ch = lw + 72, th + 52 + 28 * len(lines)
+    x0, y0 = (w - cw) // 2, (h - ch) // 2
+    panel(frame, x0, y0, x0 + cw, y0 + ch, r=22)
+    draw_text(frame, title, w // 2, y0 + 22, 34, accent, "bold", anchor="ct")
+    for i, t in enumerate(lines):
+        draw_text(frame, t, w // 2, y0 + 34 + th + 28 * i, 17, TEXT_2, "medium", anchor="ct")
+    return frame
+
+
 def _hint(frame, cx, cy):
     title, body = "Raise your hands", "Left hand picks the chord  ·  right hand shapes it"
     tw, th = text_size(title, 34, "bold")
