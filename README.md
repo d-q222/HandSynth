@@ -4,6 +4,10 @@ A webcam instrument. Hold your hands up to the camera: the **left hand picks the
 **right hand shapes it**. Chords stay in the chosen key, switch without clicks, and sit low enough
 to sing over. The full spec is in [`HAND_SYNTH_PRD.md`](./HAND_SYNTH_PRD.md).
 
+![Hand Synth overlay: left hand plays ii in G, right hand adds the 7th → Am7](docs/screenshot.png)
+
+<sub>Overlay rendered with synthetic hands (left: index → ii; right: three fingers → add7).</sub>
+
 ## Quick start (macOS, Apple Silicon)
 
 ```bash
