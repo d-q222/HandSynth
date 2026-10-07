@@ -263,15 +263,13 @@ def test_volume_is_a_db_fader():
     assert all(volume_gain(a) < volume_gain(b) for a, b in zip(ts[1:], ts[2:]))
 
 
-def test_slider_soft_takeover_returns_control_to_the_hand(inst):
-    """Clicking a slider must not silently disable the hand: holding still keeps the slider value,
-    a deliberate hand move takes control back (the debug log showed a click pinning volume for 50 s)."""
-    for _ in range(10):
-        inst.update(HandsFrame(left=None, right=right(OPEN, y=0.6)))
+def test_slider_holds_while_the_hand_moves_until_released(inst):
+    """A slider-set control stays put however the hand moves; only the SLIDER chip hands it back."""
     inst.set_control("volume", 0.95)
-    for _ in range(20):                                    # hand still: slider value holds
-        inst.update(HandsFrame(left=None, right=right(OPEN, y=0.6)))
+    for y in (0.3, 0.85, 0.5, 0.9) * 10:
+        inst.update(HandsFrame(left=None, right=right(OPEN, y=y)))
     assert inst.ema_gain.value == pytest.approx(0.95) and "volume" in inst.pinned
-    for _ in range(30):                                    # hand drops well past the takeover distance
+    inst.release_control("volume")
+    for _ in range(30):
         inst.update(HandsFrame(left=None, right=right(OPEN, y=0.85)))
-    assert "volume" not in inst.pinned and inst.ema_gain.value < 0.4
+    assert inst.ema_gain.value < 0.4

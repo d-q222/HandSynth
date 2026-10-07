@@ -104,8 +104,7 @@ class Instrument:
         self.chord_fingers = None   # held tuples, for the overlay
         self.expr_fingers = None
         self.expr_missing = 0       # consecutive frames without the expression hand
-        self.pinned: set[str] = set()   # controls set by an on-screen slider; the hand leaves them alone...
-        self.pin_ref: dict[str, float | None] = {}   # ...until it moves SLIDER_TAKEOVER away from here
+        self.pinned: set[str] = set()   # controls set by an on-screen slider; the hand leaves them alone
         self._emas = {"volume": self.ema_gain, "brightness": self.ema_bright, "space": self.ema_space}
 
     def update(self, hands: HandsFrame, key: str | None = None) -> bool:
@@ -141,7 +140,7 @@ class Instrument:
                                       / (cfg.PINCH_MAX - cfg.PINCH_MIN)),
             }
             for name, target in targets.items():
-                if self._hand_drives(name, target):
+                if name not in self.pinned:
                     self._emas[name].update(target)
         else:
             # Gone for HOLD_FRAMES frames → mod resets (volume, brightness and space hold). A one-frame
@@ -176,29 +175,13 @@ class Instrument:
                            waveform=self.waveform, reverb=lerp(cfg.REVERB_MIX_RANGE, self.ema_space.value))
 
     def set_control(self, name: str, t: float):
-        """A slider moved: set the control (0..1) and hold it there while the hand stays put."""
+        """A slider moved: set the control (0..1) and keep it there; the hand stops driving it."""
         self._emas[name].set(clamp01(t))
         self.pinned.add(name)
-        self.pin_ref[name] = None           # reference = where the hand is when next seen
 
     def release_control(self, name: str):
-        """Give a control back to the hand right away (clicking the PINNED chip)."""
+        """Give a control back to the hand (clicking its SLIDER chip)."""
         self.pinned.discard(name)
-        self.pin_ref.pop(name, None)
-
-    def _hand_drives(self, name: str, target: float) -> bool:
-        """Soft takeover: a slider-set control ignores the hand until the hand deliberately moves
-        (SLIDER_TAKEOVER of its range) from where it was, then the hand has it again."""
-        if name not in self.pinned:
-            return True
-        ref = self.pin_ref.get(name)
-        if ref is None:
-            self.pin_ref[name] = target
-            return False
-        if abs(target - ref) > cfg.SLIDER_TAKEOVER:
-            self.release_control(name)
-            return True
-        return False
 
     def cycle_waveform(self):
         self.waveform = cfg.WAVEFORMS[(cfg.WAVEFORMS.index(self.waveform) + 1) % len(cfg.WAVEFORMS)]

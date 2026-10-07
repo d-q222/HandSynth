@@ -207,7 +207,7 @@ class KeyBar:
 
 class HudControls:
     """Mouse handling for the bottom panel: drag a slider to set (and pin) a control, click its
-    HAND/PINNED chip to give it back to the hand, click a waveform chip to switch. Geometry comes
+    HAND/SLIDER chip to give it back to the hand, click a waveform chip to switch. Geometry comes
     from the last draw; nothing is clickable while the panel is hidden."""
 
     def __init__(self, on_slide: Callable[[str, float], None], on_release: Callable[[str], None],
@@ -218,7 +218,7 @@ class HudControls:
 
     def clear(self):
         self.sliders: dict[str, tuple[int, int, int, int]] = {}   # name -> bar (x0, y0, x1, y1)
-        self.chips: dict[str, tuple[int, int, int, int]] = {}     # name -> HAND/PINNED chip rect
+        self.chips: dict[str, tuple[int, int, int, int]] = {}     # name -> HAND/SLIDER chip rect
         self.waves: dict[str, tuple[int, int, int, int]] = {}     # waveform -> chip rect
 
     def _slide(self, name, x):
@@ -400,7 +400,7 @@ def _finger_dots(frame, x, y, fingers, color):
 
 
 def _meter(frame, x, y, width, label, value, readout, pinned=None):
-    """Label + readout + bar. With `pinned` given (True/False) it is a slider: knob + HAND/PINNED chip.
+    """Label + readout + bar. With `pinned` given (True/False) it is a slider: knob + HAND/SLIDER chip.
     Returns (bar rect, chip rect or None)."""
     value = min(1.0, max(0.0, value))
     _label(frame, label, x, y, TEXT_3)
