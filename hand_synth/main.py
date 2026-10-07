@@ -377,7 +377,8 @@ def main(argv=None):
                 print(f"[debug] hands: {seen} | vol pos {inst.ema_gain.value:.2f}"
                       f"{' PINNED' if 'volume' in inst.pinned else ''} -> gain {p.gain:.3f} | synth gain "
                       f"{synth._gain_s:.3f} | out {20 * math.log10(synth.out_rms + 1e-9):6.1f} dBFS | "
-                      f"chord {inst.chord_name()} | space {p.reverb:.2f}", flush=True)
+                      f"chord {inst.chord_name()} | space {p.reverb:.2f} | xruns {synth.xrun_count}"
+                      f"{' | AUDIO ERROR ' + synth.error if synth.error else ''}", flush=True)
             fps = 0.9 * fps + 0.1 / max(1e-6, now - last_t)
             last_t = now
             s = inst.state
