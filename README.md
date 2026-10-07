@@ -74,14 +74,10 @@ Re-run the script if you move the repo.
 
 Click a key along the top bar to change the key; `←`/`→` do the same.
 
-**Sliders.** The bottom panel's VOLUME, BRIGHTNESS and SPACE are sliders. Drag one to set it, and it
-becomes **PINNED**: your hand stops driving it, so you can set a level and keep it. Click the
-PINNED chip to give that control back to your hand (HAND). Click Sine / Triangle / Saw to change the waveform.
-Other keys:
-- `h` hides the clutter, cycling through three overlay modes:
-  - **full**: everything.
-  - **minimal**: the key bar, the hand skeletons and the chord name.
-  - **clean**: only the chord name over the video.
+**Sliders.** The bottom panel's VOLUME, BRIGHTNESS and SPACE are sliders. Drag one to set a level, and its
+chip changes from HAND to **SLIDER**. Hold your right hand still and the level stays where you set it. Move your hand
+deliberately (about 15% of its range) and the hand takes that control back on its own. Clicking the chip
+also hands it back. Click Sine / Triangle / Saw to change the waveform.
 
   Set the startup mode with `UI_MODE` in config or `--ui`.
 - `w` cycles the waveform (sine / triangle / saw).

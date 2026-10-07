@@ -407,7 +407,7 @@ def _meter(frame, x, y, width, label, value, readout, pinned=None):
     chip = None
     if pinned is not None:
         lw = text_size(label, 12, "bold")[0]
-        tag = "PINNED" if pinned else "HAND"
+        tag = "SLIDER" if pinned else "HAND"
         cw, ch = pill(frame, tag, x + lw + 8, y - 2, 9, PANEL if pinned else TEXT_3, TEXT if pinned else TRACK,
                       alpha=0.95 if pinned else 0.7, weight="bold", pad=(6, 2))
         chip = (x + lw + 8, y - 2, x + lw + 8 + cw, y - 2 + ch)
