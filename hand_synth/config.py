@@ -57,9 +57,9 @@ CUTOFF_HZ = (300.0, 6000.0)         # brightness range, log-mapped
 GAIN_RANGE = (0.0, 0.8)             # wrist-y (top of frame = loud)
 WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.25   # expression-hand wrist y (0 top..1 bottom) mapped to GAIN_RANGE ends
 GAIN_START = 0.5                    # 0..1 position in GAIN_RANGE before the expression hand appears
-REVERB_MIX_RANGE = (0.05, 0.6)      # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wet)
+REVERB_MIX_RANGE = (0.0, 1.0)       # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wash)
 WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x, fraction of frame width from the chord hand's side
-REVERB_START = 0.4                  # 0..1 position in REVERB_MIX_RANGE before the expression hand appears
+REVERB_START = 0.35                 # 0..1 position in REVERB_MIX_RANGE before the expression hand appears
 BRIGHTNESS_START = 0.5              # 0..1 position in CUTOFF_HZ before the expression hand appears
 
 # ── Audio ────────────────────────────────────────────────────────────────────
@@ -69,8 +69,10 @@ WAVEFORM = "triangle"           # "sine" | "triangle" | "saw"   (cycle live with
 WAVEFORMS = ["sine", "triangle", "saw"]
 ATTACK_S, RELEASE_S = 0.02, 0.08
 DETUNE_CENTS = 7.0              # unison: centre oscillator + a pair detuned ±this many cents (0 = off)
-REVERB_ROOM = 0.84              # reverb tail length: comb feedback, 0..0.95
-REVERB_DAMP = 0.4               # high-frequency damping inside the tail, 0..1
+UNISON_SPREAD = 0.5             # stereo width of the detuned pair: 0 = mono, 1 = hard left/right
+REVERB_ROOM = 0.92              # reverb tail length: comb feedback, 0..0.97 (0.92 ≈ 2.5 s tail)
+REVERB_DAMP = 0.3               # high-frequency damping inside the tail, 0..1 (lower = brighter, airier)
+REVERB_PREDELAY_MS = 25.0       # gap before the reverb starts, so it separates from the dry pad
 GAIN_RAMP_S = 0.02              # master-gain smoothing inside the audio thread
 CUTOFF_RAMP_S = 0.03            # cutoff smoothing inside the audio thread
 STOP_FADE_S = 0.15              # fade-out on quit before the stream closes

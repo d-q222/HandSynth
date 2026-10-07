@@ -140,12 +140,12 @@ def test_reverb_tail_after_release_and_decays():
     for rv, ring in ((0.6, True), (0.0, False)):
         s = mk(reverb=rv)
         s.set_chord(C)
-        x = render(s, 20 + 800, lambda: s.set_chord([]), at=20)
+        x = render(s, 20 + 1800, lambda: s.set_chord([]), at=20)     # ~10 s: room for a 2.5 s tail
         sane(x)
         tail = x[rel * B:(rel + 40) * B]
         if ring:
             assert np.abs(tail).max() > 1e-3
-            assert np.abs(x[-20 * B:]).max() == 0.0          # true silence within ~4 s
+            assert np.abs(x[-20 * B:]).max() == 0.0          # true silence within ~10 s
         else:
             assert np.abs(tail).max() < 1e-4
 
@@ -229,11 +229,42 @@ def test_reverb_identical_for_any_block_size(block):
     BLOCK_SIZE (a delay clamped to the block size would turn it into a metallic flutter echo)."""
     def impulse_response(bs):
         s = NumpySynth(cfg_with(BLOCK_SIZE=bs))
-        s._wet_s = s._wet_prev = 1.0
         x = np.zeros(8192)
         x[0] = 1.0
-        ramp = (np.arange(bs) + 1.0) / bs
-        return np.concatenate([s._reverb(x[i:i + bs], 1.0, ramp) for i in range(0, len(x), bs)])
+        return np.concatenate([s._reverb_wet(x[i:i + bs]) for i in range(0, len(x), bs)])
     ref, got = impulse_response(256), impulse_response(block)
     assert np.abs(ref).max() > 0.01
     np.testing.assert_allclose(got, ref, atol=1e-12)
+
+
+def test_stereo_reverb_is_wide_and_long():
+    """SPACE must be audible: the wet signal differs between ears (decorrelated) and rings ~2 s+."""
+    s = NumpySynth(cfg)
+    x = np.zeros(int(4 * cfg.SAMPLE_RATE))
+    x[0] = 1.0
+    ir = np.concatenate([s._reverb_wet(x[i:i + B]) for i in range(0, len(x), B)])
+    left, right = ir[:, 0], ir[:, 1]
+    assert abs(np.corrcoef(left, right)[0, 1]) < 0.5                  # two ears hear different rooms
+    e = np.cumsum((left ** 2 + right ** 2)[::-1])[::-1]
+    t60 = np.argmax(10 * np.log10(e / e[0] + 1e-30) < -60) / cfg.SAMPLE_RATE
+    assert t60 > 1.8                                                   # a real room, not a short smear
+
+
+def test_space_changes_the_sound_a_lot():
+    """Full space vs none: the release tail is tens of dB louder, so the control is clearly audible."""
+    def tail_db(mix):
+        s = mk(reverb=mix)
+        s._wet_s = s._wet_prev = mix
+        s.set_chord(C)
+        x = render(s, 200, lambda: s.set_chord([]), at=150)
+        seg = x[(150 + 40) * B:(150 + 80) * B]                          # ~0.2-0.45 s after release
+        return 20 * np.log10(np.sqrt(np.mean(seg.astype(float) ** 2)) + 1e-12)
+    assert tail_db(1.0) - tail_db(0.0) > 30
+
+
+def test_stereo_output_shape_and_mid_compat():
+    s = mk(reverb=0.0)
+    s.set_chord(C)
+    st = s.render_offline(10, stereo=True)
+    assert st.shape == (10 * B, 2) and st.dtype == np.float32
+    assert not np.allclose(st[:, 0], st[:, 1])                         # unison pair is panned

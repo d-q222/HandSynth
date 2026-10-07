@@ -148,8 +148,11 @@ extra audio stack, taking about 0.1 ms of CPU per 5.8 ms audio block.
     (Plomp–Levelt) rates these voicings 54% smoother on average than a plain close voicing, and none rougher.
     `"close"` keeps the old tight voice-led cluster.
 - **Unison.** Each note is a centre oscillator plus a pair detuned by ±`DETUNE_CENTS`, for a slow chorus shimmer. The centre keeps the fundamental steady, so the bass never beats out.
-- **Reverb.** A Freeverb-style room (`REVERB_ROOM`, `REVERB_DAMP`). Its mix follows the right
-  hand's horizontal position, within `REVERB_MIX_RANGE`.
+- **Space (reverb).** A stereo Freeverb room with about 2.5 s of tail (`REVERB_ROOM`) and a 25 ms pre-delay. The left
+  and right ears get differently tuned delays, which is what makes it sound like a room and not a smear. It runs
+  from dry (0%) to a wash (100%) at roughly constant loudness, so space never acts as a volume knob. Move
+  the right hand outward for more, or drag the SPACE slider.
+- **Stereo.** The detuned unison pair leans left and right (`UNISON_SPREAD`), so the pad itself is wide.
 - **Click-free.** Every chord change is a crossfade between per-voice envelopes. Gain, cutoff, reverb and
   waveform changes are all ramped. The offline tests check each of these for clicks.
 
