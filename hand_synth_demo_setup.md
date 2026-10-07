@@ -1,8 +1,6 @@
 # Hand Synth — setup + throwaway demo (before the real build)
 
-Companion to [`HAND_SYNTH_PRD.md`](./HAND_SYNTH_PRD.md). The PRD's Part E tells Claude Code to confirm this is done before scaffolding anything.
-
-Goal: prove every layer works on your Mac in the smallest possible form. Three scripts, each under 30 lines. Nothing here is kept; the real project starts from the PRD in a fresh folder.
+Goal: prove every layer works on your Mac in the smallest possible form. Three scripts, each under 30 lines. Nothing here is kept; the real project starts in a fresh folder.
 
 Time: ~60–90 min. Stop when script 3 makes a sound that follows your finger.
 
@@ -51,7 +49,7 @@ cap.release(); cv2.destroyAllWindows()
 ```
 
 Checks before moving on:
-- Hold up only your left hand (your chord hand). Console must say `Left`. If it says `Left`, the mirror/handedness assumption is wrong on your setup; note it, the PRD's `MIRROR` flag handles it.
+- Hold up only your left hand (your chord hand). Console must say `Left`. If it says `Left`, the mirror/handedness assumption is wrong on your setup; note it, the `MIRROR` flag handles it.
 - Move the index finger up. `y` must go *down* toward 0. Image y grows downward; this is the fact `fingers_up()` depends on.
 - Note: `mp.solutions` is the legacy API. It is the shortest path for a demo. The real project can use either; the wrapper hides it.
 
@@ -81,7 +79,7 @@ sd.play((sig * env * 0.5).astype(np.float32), SR); sd.wait()
 Experiments (5 min each, worth doing):
 - Swap intervals to `(0,3,7)` and `(0,3,6)`; hear major → minor → diminished.
 - Change `root` to `55` (G3). Same intervals, new key. That is the whole "one KEY value" idea.
-- Set `fade = 1`. Hear the click. Now you know why the PRD insists on envelopes.
+- Set `fade = 1`. Hear the click. Now you know why the synth uses envelopes.
 - Replace `np.sin(x)` with `np.sign(np.sin(x))` (square) or `2/np.pi*np.arcsin(np.sin(x))` (triangle). Pick the one you'd want to sing over.
 
 ## 3. `demo_theremin.py` — finger height → pitch, continuous (30 min)
@@ -128,14 +126,14 @@ stream.stop(); stream.close(); cap.release(); cv2.destroyAllWindows()
 
 What to notice:
 - Raise your finger, pitch rises; hand leaves frame, silence. Latency should feel near-instant.
-- Comment out the `phase = ph[-1] ...` line. Buzzing/clicks at 172 Hz. That is what "never reset phase" in the PRD means.
+- Comment out the `phase = ph[-1] ...` line. Buzzing/clicks at 172 Hz. That is what "never reset phase" means.
 - Remove the lock. It will probably still work. It is there because the real synth swaps a whole list of voices, not one float.
 
 ## 4. Done when
 
 - All three scripts run from a clean `source .venv/bin/activate`.
 - You can say, without looking, why the mirror flip comes before MediaPipe, why fingertip y decreases when the finger goes up, why the fade exists, and why phase carries across callbacks.
-- Then: new folder, hand Claude Code the PRD, stop at step 3 of D2 and write `fingers_up()`.
+- Then: new folder, write `fingers_up()`.
 
 ## What this demo deliberately does not do
 

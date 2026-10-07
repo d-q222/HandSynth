@@ -15,3 +15,6 @@ build/
 
 # Local model download (see config.MODEL_URL)
 models/
+
+# Private planning doc (kept locally, not published)
+HAND_SYNTH_PRD.md

@@ -7,7 +7,7 @@ import pytest
 FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "fixtures" / "landmarks"
 
 
-# PRD C8: a finger fixture's expected tuple is the tag in its filename (left_TFFFF_001.json).
+# A finger fixture's expected tuple is the tag in its filename (left_TFFFF_001.json).
 # The filename wins over the JSON's expected.fingers, so fixing a misread recording is a rename.
 _TAGGED = re.compile(r"^(left|right)_([TF]{5})_\d+\.json$", re.IGNORECASE)
 

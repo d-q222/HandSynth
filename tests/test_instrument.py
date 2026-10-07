@@ -1,4 +1,4 @@
-"""PRD C8 manual acceptance checklist, automated with synthetic hands (stand-in geometry)."""
+"""Manual acceptance checklist, automated with synthetic hands (stand-in geometry)."""
 import pytest
 
 from hand_synth import config as cfg

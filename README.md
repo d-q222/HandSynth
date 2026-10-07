@@ -2,7 +2,7 @@
 
 A webcam instrument. Hold your hands up to the camera: the **left hand picks the chord**, the
 **right hand shapes it**. Chords stay in the chosen key, switch without clicks, and sit low enough
-to sing over. The full spec is in [`HAND_SYNTH_PRD.md`](./HAND_SYNTH_PRD.md).
+to sing over.
 
 ![Hand Synth overlay: left hand plays ii in G, right hand adds the 7th → Am7](docs/screenshot.png)
 
@@ -95,12 +95,12 @@ Other behaviour:
 
 ## The hand-written parts: stand-ins until they exist
 
-`fingers.py::fingers_up()` and `features.py` are written by hand, with no AI (see PRD D1–D3).
+`fingers.py::fingers_up()` and `features.py` are written by hand, with no AI.
 Until they are written, the app runs on temporary stand-ins in `hand_synth/standins.py` and shows a
 **STAND-IN** badge in the corner.
 
 - `standins.py` opens with a spoiler warning, so don't read it before writing your own. Its finger
-  detector deliberately uses a different method (3D joint angles) from the one the PRD suggests.
+  detector deliberately uses a different method (3D joint angles) from the obvious finger-extension heuristic.
 - Each function switches over **automatically** once yours stops raising `NotImplementedError`,
   one function at a time. On startup the console prints `manual` or `stand-in` for each one.
 - If your function raises an error during play, that one call falls back to the stand-in
@@ -181,7 +181,7 @@ tests/             pytest; no camera or speakers needed
 ```
 
 To swap the audio backend (pyo, SuperCollider), implement the four methods in `synth/base.py` and
-change the one `NumpySynth(cfg)` line in `main.py` (PRD C6).
+change the one `NumpySynth(cfg)` line in `main.py`.
 
 ## Tests
 
@@ -194,9 +194,9 @@ The suite covers:
 - the stabilizers;
 - offline synth rendering, asserting no clicks on chord, waveform and gain changes and true silence after release;
 - the stand-ins against every fixture;
-- the PRD's acceptance checklist, run as `tests/test_instrument.py` on synthetic hands.
+- the acceptance checklist below, run as `tests/test_instrument.py` on synthetic hands.
 
-## Acceptance checklist (live, PRD C8)
+## Acceptance checklist (live)
 
 - [ ] Hold up only your **right** hand, on the right of the screen: the overlay labels it `Right` and tags it SHAPE.
 - [ ] Select key **G**. Left open hand plays G; left index alone plays Am.
@@ -206,23 +206,6 @@ The suite covers:
 - [ ] A left fist gives silence, with a fade.
 - [ ] Click **D**: an open hand now plays D major.
 - [ ] Hold a chord and sing over it for 30 seconds without hearing a click.
-
-## Differences from the PRD
-
-Every deviation is deliberate. Each one is listed here so the spec and the code don't silently drift apart.
-
-| PRD | Built | Why |
-|---|---|---|
-| Demo gate (D2 step 0) before scaffolding | Skipped at the owner's request | The environment was proven directly instead: venv, model download, camera, audio. |
-| `fingers.py` / `features.py` hand-written first | Stubs, plus temporary stand-ins in `standins.py` | A working demo before the manual gate. The stand-ins hand over automatically per function. |
-| Landmarks in raw normalized coordinates | x and z scaled by width/height | Real angles: 45° of roll reads as 45°, not ~29°. |
-| MediaPipe, any version | Pinned to `0.10.21` | 1.0.x crashes on macOS. |
-| Divide the mix by voice count | Normalized by max(smoothed held count, summed envelopes) | Avoids level jumps and keeps full attack and release shapes. |
-| v1 sound: oscillators, LPF, gain | Adds unison detune, reverb, voice leading and a bass note | PRD C10's "revisit" items, for a fuller accompaniment pad. |
-| Expression-hand wrist-x unused | Drives reverb mix ("space") | PRD C10's first candidate control. |
-| Left/Right from MediaPipe handedness | From screen position (`HANDEDNESS = "position"`) | The classifier's labels changed with mirroring and rotation on real test photos. Position is predictable. |
-| `demo_keys`: 7/9/6 toggle mods | J/K/L toggle add7/add9/add6 | 7 and 6 already select chord degrees. |
-| — | `h` view modes, empty-state hint, startup config validation | UX and robustness. |
 
 ## Troubleshooting
 
