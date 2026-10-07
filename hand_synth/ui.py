@@ -142,7 +142,7 @@ class OverlayState:
     expr_fingers: tuple | None
     roll: float | None
     zone: str
-    gain: float                         # 0..1 position in GAIN_RANGE
+    gain: float                         # 0..1 volume position (dB fader)
     brightness: float                   # 0..1 position in CUTOFF_HZ
     cutoff_hz: float
     waveform: str

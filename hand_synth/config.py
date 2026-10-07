@@ -54,9 +54,11 @@ EMA_ALPHA = 0.3                 # continuous smoothing
 # ── Expression controls ──────────────────────────────────────────────────────
 PINCH_MIN, PINCH_MAX = 0.15, 0.9    # normalized pinch range → 0..1
 CUTOFF_HZ = (300.0, 6000.0)         # brightness range, log-mapped
-GAIN_RANGE = (0.0, 0.8)             # wrist-y (top of frame = loud)
-WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.25   # expression-hand wrist y (0 top..1 bottom) mapped to GAIN_RANGE ends
-GAIN_START = 0.5                    # 0..1 position in GAIN_RANGE before the expression hand appears
+VOLUME_MAX_GAIN = 1.0               # linear gain at the top of the volume range
+VOLUME_RANGE_DB = 36.0              # volume is a dB fader (equal hand moves = equal loudness steps):
+                                    #   top = 0 dB, bottom = -36 dB, fading to silence in the last few %
+WRIST_Y_QUIET, WRIST_Y_LOUD = 0.9, 0.3     # expression-hand wrist y (0 top..1 bottom) at the bottom / top of the volume range
+GAIN_START = 0.75                   # 0..1 volume position before the expression hand appears (≈ -9 dB)
 REVERB_MIX_RANGE = (0.0, 1.0)       # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wash)
 WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x, fraction of frame width from the chord hand's side
 REVERB_START = 0.35                 # 0..1 position in REVERB_MIX_RANGE before the expression hand appears
@@ -76,6 +78,7 @@ REVERB_PREDELAY_MS = 25.0       # gap before the reverb starts, so it separates 
 GAIN_RAMP_S = 0.02              # master-gain smoothing inside the audio thread
 CUTOFF_RAMP_S = 0.03            # cutoff smoothing inside the audio thread
 STOP_FADE_S = 0.15              # fade-out on quit before the stream closes
+OUTPUT_MAKEUP_DB = 4.0          # output level boost; a soft limiter (rarely engaged) keeps peaks below full scale
 AUDIO_DEVICE = None             # None = system default output; or an index/name from sounddevice.query_devices()
 
 # ── Camera / tracking ────────────────────────────────────────────────────────

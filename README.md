@@ -68,7 +68,7 @@ Re-run the script if you move the repo.
 | | four fingers | add9 |
 | | thumb | add6 |
 | | thumb + index ("L") | 7: flat 7th (D7 in the key of D; add7 gives the in-key Dmaj7) |
-| | raise / lower the hand | louder / quieter |
+| | raise / lower the hand | louder / quieter (a dB fader: every 10% of screen height ≈ 6 dB, silent at the bottom) |
 | | open / close the thumb–index pinch | brighter / darker |
 | | move the hand outward / inward | more / less reverb ("space") |
 

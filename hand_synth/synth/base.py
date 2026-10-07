@@ -8,7 +8,7 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class SynthParams:
-    gain: float = 0.5          # 0..1 master gain (already mapped through config.GAIN_RANGE)
+    gain: float = 0.5          # linear master gain (main.volume_gain maps the 0..1 fader to it)
     cutoff_hz: float = 2000.0  # low-pass cutoff
     waveform: str = "triangle"  # "sine" | "triangle" | "saw"
     reverb: float = 0.0        # 0..1 wet mix

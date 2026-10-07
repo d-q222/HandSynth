@@ -52,6 +52,17 @@ _WET_GAIN = 0.4                             # full space ≈ +1 dB vs dry on a s
 # bass note would drop out every 1-2 s); a strong centre keeps the fundamental steady (±~4 dB shimmer).
 _CENTRE_W, _SIDE_W = 0.6, 0.2
 _FLUSH = 1e-9
+_LIMIT_KNEE = 0.7                           # soft limiter: linear below this, tanh curve above it
+
+
+def _soft_limit(y):
+    """Leave |y| <= knee untouched; above it, bend smoothly toward 1.0 (slope-continuous, never clips)."""
+    a = np.abs(y)
+    over = a > _LIMIT_KNEE
+    if over.any():
+        k = _LIMIT_KNEE
+        y = np.where(over, np.sign(y) * (k + (1.0 - k) * np.tanh((a - k) / (1.0 - k))), y)
+    return y
 
 
 class _Ring:
@@ -151,6 +162,7 @@ class NumpySynth:
         self._fc = p.cutoff_hz
         self._zi = [np.zeros((1, 2)), np.zeros((1, 2))]      # 2-pole LPF state, per channel
         self._fade = 1.0
+        self._makeup = 10 ** (float(getattr(cfg, "OUTPUT_MAKEUP_DB", 0.0)) / 20.0)
         self._ratios = ()
         c = float(getattr(cfg, "DETUNE_CENTS", 0.0))
         if c > 0:
@@ -360,4 +372,4 @@ class NumpySynth:
             f = np.clip(self._fade + step * k, 0.0, 1.0)
             self._fade = float(f[-1])
             y = y * f[:, None]
-        return np.clip(y, -1.0, 1.0).astype(np.float32)
+        return np.clip(_soft_limit(y * self._makeup), -1.0, 1.0).astype(np.float32)

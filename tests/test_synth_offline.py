@@ -167,7 +167,7 @@ def test_no_clip_loud_chord_with_reverb():
 
 
 def _spectrum(cents):
-    s = NumpySynth(cfg_with(DETUNE_CENTS=cents))
+    s = NumpySynth(cfg_with(DETUNE_CENTS=cents, OUTPUT_MAKEUP_DB=0.0))     # oscillators only, limiter idle
     s.set_params(SynthParams(0.8, 8000.0, "sine"))
     s.set_chord([440.0])
     x = s.render_offline(400)[100 * B:].astype(np.float64)
@@ -268,3 +268,12 @@ def test_stereo_output_shape_and_mid_compat():
     st = s.render_offline(10, stereo=True)
     assert st.shape == (10 * B, 2) and st.dtype == np.float32
     assert not np.allclose(st[:, 0], st[:, 1])                         # unison pair is panned
+
+
+def test_soft_limiter_is_transparent_below_knee_and_never_clips():
+    from hand_synth.synth.numpy_synth import _LIMIT_KNEE, _soft_limit
+    x = np.linspace(-3, 3, 10001)
+    y = _soft_limit(x)
+    quiet = np.abs(x) <= _LIMIT_KNEE
+    np.testing.assert_array_equal(y[quiet], x[quiet])
+    assert np.abs(y).max() < 1.0 and np.all(np.diff(y) > 0)                # monotonic, below full scale

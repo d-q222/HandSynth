@@ -242,8 +242,22 @@ def test_pinned_control_ignores_the_hand_until_released(inst):
     for _ in range(30):
         inst.update(HandsFrame(left=None, right=right(OPEN, y=0.85)))   # low hand would mean quiet
     assert inst.ema_gain.value == pytest.approx(0.9)
-    assert inst.params().gain == pytest.approx(cfg.GAIN_RANGE[0] + 0.9 * (cfg.GAIN_RANGE[1] - cfg.GAIN_RANGE[0]))
+    from hand_synth.main import volume_gain
+    assert inst.params().gain == pytest.approx(volume_gain(0.9))
     inst.release_control("volume")
     for _ in range(30):
         inst.update(HandsFrame(left=None, right=right(OPEN, y=0.85)))
     assert inst.ema_gain.value < 0.5
+
+
+def test_volume_is_a_db_fader():
+    """Equal hand moves = equal loudness steps (dB taper), top = max gain, bottom = silence."""
+    import math
+    from hand_synth.main import volume_gain
+    db = lambda t: 20 * math.log10(volume_gain(t) / cfg.VOLUME_MAX_GAIN)
+    assert volume_gain(1.0) == pytest.approx(cfg.VOLUME_MAX_GAIN)
+    assert db(0.5) == pytest.approx(-cfg.VOLUME_RANGE_DB / 2)
+    assert db(0.75) - db(0.5) == pytest.approx(db(0.5) - db(0.25))          # even steps
+    assert volume_gain(0.0) == 0.0 and volume_gain(-1) == 0.0
+    ts = [i / 100 for i in range(101)]
+    assert all(volume_gain(a) < volume_gain(b) for a, b in zip(ts[1:], ts[2:]))

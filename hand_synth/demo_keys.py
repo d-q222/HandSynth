@@ -7,7 +7,7 @@ import numpy as np
 from . import config as cfg
 from . import ui
 from .keycodes import arrow
-from .main import voicing_options
+from .main import voicing_options, volume_gain
 from .music import chord_name, chord_voicing, midi_to_hz
 from .synth.base import SynthParams
 from .synth.numpy_synth import NumpySynth
@@ -26,7 +26,7 @@ def draw(img, keybar, key, degree, flipped, mod, wave, gain, cutoff, xrun):
     keybar.draw(img, key)
     s = ui.OverlayState(key=key, chord="" if degree is None else chord_name(key, degree, flipped, mod),
                         degree=degree, flipped=flipped, mod=mod, chord_fingers=None, expr_fingers=None,
-                        roll=None, zone="natural", gain=gain / cfg.GAIN_RANGE[1], brightness=0.0,
+                        roll=None, zone="natural", gain=gain, brightness=0.0,
                         cutoff_hz=cutoff, waveform=wave, chord_hand=cfg.CHORD_HAND, expr_hand=cfg.EXPR_HAND,
                         xrun=xrun)
     ui._chord_card(img, s, ui.MARGIN, ui.MARGIN + cfg.KEYBAR_HEIGHT + 12, detailed=True)
@@ -57,7 +57,7 @@ def main():
 
     key_i = cfg.KEY_NAMES.index(cfg.KEY)
     degree, flipped, mod = 1, False, "none"
-    gain, cutoff = 0.5 * cfg.GAIN_RANGE[1], 2000.0
+    gain, cutoff = cfg.GAIN_START, 2000.0               # gain = 0..1 volume position (dB fader)
     lo, hi = cfg.REVERB_MIX_RANGE
     reverb = lo + (hi - lo) * cfg.REVERB_START
     wave_i = cfg.WAVEFORMS.index(cfg.WAVEFORM)
@@ -82,7 +82,7 @@ def main():
                 synth.set_chord([midi_to_hz(n) for n in voicing])
                 last = state
             if params_dirty:
-                synth.set_params(SynthParams(gain, cutoff, cfg.WAVEFORMS[wave_i], reverb=reverb))
+                synth.set_params(SynthParams(volume_gain(gain), cutoff, cfg.WAVEFORMS[wave_i], reverb=reverb))
                 params_dirty = False
 
             draw(img, keybar, key, degree, flipped, mod, cfg.WAVEFORMS[wave_i], gain, cutoff, synth.recent_xrun())
@@ -115,9 +115,9 @@ def main():
             elif a == "right":
                 key_i = (key_i + 1) % len(cfg.KEY_NAMES)
             elif a == "up":
-                gain = min(cfg.GAIN_RANGE[1], gain + 0.05); params_dirty = True
+                gain = min(1.0, gain + 0.05); params_dirty = True
             elif a == "down":
-                gain = max(cfg.GAIN_RANGE[0], gain - 0.05); params_dirty = True
+                gain = max(0.0, gain - 0.05); params_dirty = True
             elif c == "[":
                 cutoff = max(cfg.CUTOFF_HZ[0], cutoff / 1.2); params_dirty = True
             elif c == "]":

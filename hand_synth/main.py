@@ -34,6 +34,14 @@ def logmap(rng: tuple[float, float], t: float) -> float:
     return rng[0] * (rng[1] / rng[0]) ** t
 
 
+def volume_gain(t: float, c=cfg) -> float:
+    """0..1 volume position -> linear gain on a dB taper, like a mixing-desk fader: equal moves sound
+    like equal loudness steps over VOLUME_RANGE_DB, fading smoothly to silence in the bottom 5%."""
+    t = clamp01(t)
+    g = c.VOLUME_MAX_GAIN * 10 ** (c.VOLUME_RANGE_DB * (t - 1.0) / 20.0)
+    return g * min(1.0, t / 0.05)
+
+
 def voicing_options(c=cfg) -> dict:
     return dict(style=c.VOICING_STYLE, octave=c.ROOT_OCTAVE, voice_leading=c.VOICE_LEADING,
                 voicing_range=c.VOICING_RANGE, bass=c.BASS_NOTE, upper_range=c.UPPER_RANGE,
@@ -65,7 +73,7 @@ def check_config(c=cfg) -> list[str]:
             errs.append(f"{name} = {value!r} must be one of {list(allowed)}")
     if c.CHORD_HAND == c.EXPR_HAND:
         errs.append("CHORD_HAND and EXPR_HAND must be different hands")
-    for name in ("CUTOFF_HZ", "GAIN_RANGE", "REVERB_MIX_RANGE", "VOICING_RANGE", "UPPER_RANGE"):
+    for name in ("CUTOFF_HZ", "REVERB_MIX_RANGE", "VOICING_RANGE", "UPPER_RANGE"):
         lo, hi = getattr(c, name)
         if not lo < hi:
             errs.append(f"{name} = {(lo, hi)} must be (low, high) with low < high")
@@ -159,7 +167,7 @@ class Instrument:
         return logmap(cfg.CUTOFF_HZ, self.ema_bright.value)
 
     def params(self) -> SynthParams:
-        return SynthParams(gain=lerp(cfg.GAIN_RANGE, self.ema_gain.value), cutoff_hz=self.cutoff_hz,
+        return SynthParams(gain=volume_gain(self.ema_gain.value), cutoff_hz=self.cutoff_hz,
                            waveform=self.waveform, reverb=lerp(cfg.REVERB_MIX_RANGE, self.ema_space.value))
 
     def set_control(self, name: str, t: float):
