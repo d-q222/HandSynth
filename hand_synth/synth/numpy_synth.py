@@ -162,6 +162,7 @@ class NumpySynth:
         self._fc = p.cutoff_hz
         self._zi = [np.zeros((1, 2)), np.zeros((1, 2))]      # 2-pole LPF state, per channel
         self._fade = 1.0
+        self.out_rms = 0.0      # level of the last rendered block (diagnostics)
         self._makeup = 10 ** (float(getattr(cfg, "OUTPUT_MAKEUP_DB", 0.0)) / 20.0)
         self._ratios = ()
         c = float(getattr(cfg, "DETUNE_CENTS", 0.0))
@@ -372,4 +373,6 @@ class NumpySynth:
             f = np.clip(self._fade + step * k, 0.0, 1.0)
             self._fade = float(f[-1])
             y = y * f[:, None]
-        return np.clip(_soft_limit(y * self._makeup), -1.0, 1.0).astype(np.float32)
+        y = np.clip(_soft_limit(y * self._makeup), -1.0, 1.0).astype(np.float32)
+        self.out_rms = float(np.sqrt(np.mean(y * y)))
+        return y

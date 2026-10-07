@@ -6,6 +6,7 @@ Run: `python -m hand_synth.main` (or `hand-synth` after `pip install -e .`).
 """
 import argparse
 import json
+import math
 import signal
 import sys
 import time
@@ -222,6 +223,7 @@ def parse_args(argv):
                    help="camera index, or a video file path (default: config.CAMERA_INDEX)")
     p.add_argument("--key", default=cfg.KEY, choices=cfg.KEY_NAMES, help="startup key")
     p.add_argument("--ui", default=cfg.UI_MODE, choices=cfg.UI_MODES, help="overlay detail (cycle live with h)")
+    p.add_argument("--debug", action="store_true", help="print hand/volume/audio diagnostics once a second")
     return p.parse_args(argv)
 
 
@@ -338,6 +340,7 @@ def main(argv=None):
     ui_mode = args.ui
     flash, flash_until = None, 0.0
     last_hands_t = -1e9               # when a hand was last in view (drives the empty-state hint)
+    next_debug = 0.0
     fps, last_t = 0.0, time.monotonic()
     # Quit cleanly (with the audio fade) on Ctrl-C, `kill`, or logout. Set explicitly: when launched
     # from Finder, macOS starts the process with SIGINT ignored, and SIGTERM would kill it mid-sound.
@@ -363,6 +366,15 @@ def main(argv=None):
             now = time.monotonic()
             if hands.hands():
                 last_hands_t = now
+            if args.debug and now >= next_debug:
+                next_debug = now + 1.0
+                seen = " ".join(f"{h.label}(wrist x={h.landmarks[0][0] / hands.aspect:.2f} y={h.landmarks[0][1]:.2f})"
+                                for h in hands.hands()) or "none"
+                p = inst.params()
+                print(f"[debug] hands: {seen} | vol pos {inst.ema_gain.value:.2f}"
+                      f"{' PINNED' if 'volume' in inst.pinned else ''} -> gain {p.gain:.3f} | synth gain "
+                      f"{synth._gain_s:.3f} | out {20 * math.log10(synth.out_rms + 1e-9):6.1f} dBFS | "
+                      f"chord {inst.chord_name()} | space {p.reverb:.2f}", flush=True)
             fps = 0.9 * fps + 0.1 / max(1e-6, now - last_t)
             last_t = now
             s = inst.state
