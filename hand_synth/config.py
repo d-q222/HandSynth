@@ -57,7 +57,7 @@ CUTOFF_HZ = (300.0, 6000.0)         # brightness range, log-mapped
 VOLUME_MAX_GAIN = 1.0               # linear gain at the top of the volume range
 VOLUME_RANGE_DB = 36.0              # volume is a dB fader (equal hand moves = equal loudness steps):
                                     #   top = 0 dB, bottom = -36 dB, fading to silence in the last few %
-WRIST_Y_QUIET, WRIST_Y_LOUD = 0.9, 0.3     # expression-hand wrist y (0 top..1 bottom) at the bottom / top of the volume range
+WRIST_Y_QUIET, WRIST_Y_LOUD = 0.95, 0.5    # expression-hand wrist y (0 top..1 bottom): full volume at mid-screen, no reaching up
 GAIN_START = 0.75                   # 0..1 volume position before the expression hand appears (≈ -9 dB)
 REVERB_MIX_RANGE = (0.0, 1.0)       # wet mix, mapped from expression-hand wrist x (inward = dry, outward = wash)
 WRIST_X_DRY, WRIST_X_WET = 0.55, 0.92   # expression-hand wrist x, fraction of frame width from the chord hand's side
