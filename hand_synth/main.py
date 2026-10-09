@@ -325,7 +325,8 @@ def main(argv=None):
     except RuntimeError as e:
         cap.release()
         sys.exit(f"hand-synth: {e}")
-    tracker = Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF,
+    print(f"  audio output    {synth.output_name}")
+    tracker =Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF,
                       cfg.HANDEDNESS)
 
     inst = Instrument(fingers_fn, feats, key=args.key)
@@ -342,6 +343,7 @@ def main(argv=None):
 
     ui_mode = args.ui
     flash, flash_until = None, 0.0
+    output_name = synth.output_name
     last_hands_t = -1e9               # when a hand was last in view (drives the empty-state hint)
     next_debug = 0.0
     fps, last_t = 0.0, time.monotonic()
@@ -369,6 +371,9 @@ def main(argv=None):
             now = time.monotonic()
             if hands.hands():
                 last_hands_t = now
+            if synth.output_name != output_name:      # the synth followed a macOS output switch
+                output_name = synth.output_name
+                flash, flash_until = f"output: {output_name}", now + cfg.FLASH_S
             if args.debug and now >= next_debug:
                 next_debug = now + 1.0
                 seen = " ".join(f"{h.label}(wrist x={h.landmarks[0][0] / hands.aspect:.2f} y={h.landmarks[0][1]:.2f})"

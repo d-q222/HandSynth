@@ -80,6 +80,7 @@ CUTOFF_RAMP_S = 0.03            # cutoff smoothing inside the audio thread
 STOP_FADE_S = 0.15              # fade-out on quit before the stream closes
 OUTPUT_MAKEUP_DB = 4.0          # output level boost; a soft limiter (rarely engaged) keeps peaks below full scale
 AUDIO_DEVICE = None             # None = system default output; or an index/name from sounddevice.query_devices()
+AUDIO_FOLLOW_POLL_S = 0.5       # with AUDIO_DEVICE None (macOS): how often to check for an output switch to follow
 
 # ── Camera / tracking ────────────────────────────────────────────────────────
 CAMERA_INDEX = 0

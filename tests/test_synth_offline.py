@@ -1,3 +1,4 @@
+import sys
 import time
 from types import SimpleNamespace
 
@@ -277,3 +278,58 @@ def test_soft_limiter_is_transparent_below_knee_and_never_clips():
     quiet = np.abs(x) <= _LIMIT_KNEE
     np.testing.assert_array_equal(y[quiet], x[quiet])
     assert np.abs(y).max() < 1.0 and np.all(np.diff(y) > 0)                # monotonic, below full scale
+
+
+# ---- following the system output --------------------------------------------
+
+
+class FakeSD:
+    """Stands in for sounddevice: one default output whose name the test can switch."""
+    def __init__(self, name):
+        self.name, self.inits, self.streams = name, 0, []
+
+    def query_devices(self, device=None, kind=None):
+        return {"name": self.name, "max_output_channels": 2}
+
+    def OutputStream(self, **kw):
+        self.streams.append(SimpleNamespace(start=lambda: None, stop=lambda: None, close=lambda: None))
+        return self.streams[-1]
+
+    def _terminate(self):
+        pass
+
+    def _initialize(self):
+        self.inits += 1
+
+
+def wait_for(cond, timeout=3.0):
+    end = time.monotonic() + timeout
+    while not cond() and time.monotonic() < end:
+        time.sleep(0.01)
+    return cond()
+
+
+def test_follows_system_output_switch(monkeypatch):
+    import hand_synth.synth.numpy_synth as ns
+    sd, dev = FakeSD("Speakers"), {"id": 1}
+    monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    monkeypatch.setattr(ns, "default_output_id", lambda: dev["id"])
+    s = NumpySynth(cfg_with(AUDIO_FOLLOW_POLL_S=0.01, STOP_FADE_S=0.0))
+    s.start()
+    assert s.output_name == "Speakers" and len(sd.streams) == 1
+    sd.name, dev["id"] = "AirPods", 2
+    assert wait_for(lambda: s.output_name == "AirPods")
+    assert sd.inits == 1 and len(sd.streams) == 2 and s.error is None
+    s.stop()
+    assert s._follower is None and s._stream is None
+
+
+def test_pinned_device_is_not_followed(monkeypatch):
+    import hand_synth.synth.numpy_synth as ns
+    sd = FakeSD("Interface")
+    monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    monkeypatch.setattr(ns, "default_output_id", lambda: 1)
+    s = NumpySynth(cfg_with(AUDIO_DEVICE="Interface", STOP_FADE_S=0.0))
+    s.start()
+    assert s._follower is None
+    s.stop()

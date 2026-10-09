@@ -32,6 +32,10 @@ Options:
 - `--ui minimal` sets the starting overlay mode.
 - `--camera 1` picks another camera, and `--camera clip.mp4` plays a recorded video instead.
 
+Sound goes to the macOS output and follows it. If you switch outputs while playing (AirPods connect,
+or you pick another speaker in Control Center), the chord fades over to the new device within about
+half a second. To always use one device, set `AUDIO_DEVICE` in `hand_synth/config.py`.
+
 ## Opening it
 
 Run this once from the repo:

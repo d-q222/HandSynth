@@ -13,6 +13,7 @@ import numpy as np
 from scipy.signal import lfilter
 
 from .base import SynthParams
+from .coreaudio import default_output_id
 
 TWO_PI = 2.0 * math.pi
 
@@ -140,6 +141,9 @@ class NumpySynth:
         self._lock = threading.Lock()
         self._target = SynthTarget(params=SynthParams(waveform=cfg.WAVEFORM))
         self._stream = None
+        self._follower = None           # thread that moves the stream when the macOS output changes
+        self._follow_stop = None
+        self.output_name = None
         self.error = None
         self.xrun_count = 0
         self._last_xrun = -1e9
@@ -194,9 +198,43 @@ class NumpySynth:
     def start(self):
         if self._stream is not None:
             return
+        self._open()
+        if self._cfg.AUDIO_DEVICE is None and default_output_id() is not None:
+            self._follow_stop = threading.Event()
+            self._follower = threading.Thread(target=self._follow_system_output, name="audio-follow", daemon=True)
+            self._follower.start()
+
+    def stop(self):
+        if self._follower is not None:
+            self._follow_stop.set()
+            self._follower.join()
+            self._follower = None
+        self._close()
+
+    def _follow_system_output(self):
+        """Watcher thread: when the macOS output changes, move the stream there (fade out, reopen, fade in)."""
+        import sounddevice as sd
+        poll = float(getattr(self._cfg, "AUDIO_FOLLOW_POLL_S", 0.5))
+        current = default_output_id()
+        while not self._follow_stop.wait(poll):
+            dev = default_output_id()
+            if dev is None or (dev == current and self._stream is not None):
+                continue
+            current = dev
+            self._close()
+            sd._terminate()             # PortAudio only sees new devices and the new default after a re-init
+            sd._initialize()
+            try:
+                self._open(fade_in=True)
+                self.error = None
+                print(f"audio output -> {self.output_name}", flush=True)
+            except RuntimeError as e:   # retried on the next poll, since _stream stays None
+                self.error = str(e).splitlines()[0]
+
+    def _open(self, fade_in=False):
         import sounddevice as sd
         try:
-            self._fade = 1.0
+            self._fade = 0.0 if fade_in else 1.0
             with self._lock:
                 self._target.fading = False
             dev = sd.query_devices(self._cfg.AUDIO_DEVICE, "output")
@@ -205,6 +243,7 @@ class NumpySynth:
                 samplerate=self.sr, blocksize=self.block, channels=self.channels,
                 dtype="float32", callback=self._cb, device=self._cfg.AUDIO_DEVICE)
             self._stream.start()
+            self.output_name = dev["name"]
         except Exception as e:  # PortAudioError, ValueError for bad device, ...
             self._stream = None
             try:
@@ -214,7 +253,7 @@ class NumpySynth:
             msg = " ".join(str(e).split())
             raise RuntimeError(f"Audio output failed: {msg}\n{devices}") from e
 
-    def stop(self):
+    def _close(self):
         s, self._stream = self._stream, None
         if s is None:
             return
