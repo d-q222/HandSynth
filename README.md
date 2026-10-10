@@ -97,23 +97,15 @@ Other behaviour:
   it's in, with a small dead band at the centre. `HANDEDNESS = "mediapipe"` switches back to the classifier.
 - **Every gesture mapping lives in [`hand_synth/config.py`](hand_synth/config.py)** (`FINGER_MAP`, `MOD_MAP`), along with every other tunable. To redesign the instrument, edit that file.
 
-## The hand-written parts: stand-ins until they exist
+## The hand-written parts
 
-`fingers.py::fingers_up()` and `features.py` are written by hand, with no AI.
-Until they are written, the app runs on temporary stand-ins in `hand_synth/standins.py` and shows a
-**STAND-IN** badge in the corner.
+`fingers.py::fingers_up()` and `features.py` are written by hand. Their gate tests:
 
-- `standins.py` opens with a spoiler warning, so don't read it before writing your own. Its finger
-  detector deliberately uses a different method (3D joint angles) from the obvious finger-extension heuristic.
-- Each function switches over **automatically** once yours stops raising `NotImplementedError`,
-  one function at a time. On startup the console prints `manual` or `stand-in` for each one.
-- If your function raises an error during play, that one call falls back to the stand-in
-  instead of crashing the instrument.
-- Your gate tests:
-  ```bash
-  .venv/bin/python -m pytest tests/test_fingers.py tests/test_features.py
-  ```
-  These skip while the stubs are unwritten. On a failure they report only the fixture name.
+```bash
+.venv/bin/python -m pytest tests/test_fingers.py tests/test_features.py
+```
+
+On a failure they report only the fixture name.
 
 ## Fixtures
 
@@ -123,8 +115,8 @@ The fixtures live under `fixtures/landmarks/`, one JSON file per hand:
 | Folder | Contents |
 |---|---|
 | `synthetic/` | Generated hands: all 32 finger states × both hands × roll/scale/noise variations, plus roll poses. Regenerate with `python scripts/make_synthetic_fixtures.py`. |
-| `real/` | Landmarks from MediaPipe's public test photos (some rotated or upside down), with fingers checked by eye. These only validate the stand-in. The labels come from the tracker, so they are **not** part of your `fingers_up()` gate. |
-| `recorded/` | What `r` saves from your own camera. The filename and `expected.fingers` come from the stand-in's reading at that moment, so **check each one and rename it if the stand-in misread your hand.** |
+| `real/` | Landmarks from MediaPipe's public test photos (some rotated or upside down), with fingers checked by eye. |
+| `recorded/` | What `r` saves from your own camera. The filename and `expected.fingers` come from `fingers_up()`'s reading at that moment, so **check each one and rename it if it misread your hand.** |
 
 Recording ~15 poses per hand plus a few rolled poses is the best test of your `fingers_up()`. It's also the starting dataset for the later classifier (`gesture.ClassifierSource`).
 
@@ -171,9 +163,8 @@ hand_synth/
   config.py        all tunables (data only)
   main.py          camera loop; Instrument = per-frame mapping (testable)
   tracking.py      MediaPipe HandLandmarker wrapper -> HandsFrame
-  fingers.py       MANUAL  fingers_up()           (stub until written)
-  features.py      MANUAL  roll/pinch/wrist/vector (stub until written)
-  standins.py      temporary stand-ins for the two above
+  fingers.py       MANUAL  fingers_up()
+  features.py      MANUAL  roll/pinch/wrist/vector
   stabilize.py     Hold, RollZone, EMA
   gesture.py       finger tuple -> degree; ClassifierSource seam
   music.py         key/scale/chord math -> MIDI, Hz, names
@@ -197,7 +188,7 @@ The suite covers:
 - music theory for all 12 keys × 7 degrees × mods and flips;
 - the stabilizers;
 - offline synth rendering, asserting no clicks on chord, waveform and gain changes and true silence after release;
-- the stand-ins against every fixture;
+- `fingers_up()` and `features.py` against every fixture;
 - the acceptance checklist below, run as `tests/test_instrument.py` on synthetic hands.
 
 ## Acceptance checklist (live)

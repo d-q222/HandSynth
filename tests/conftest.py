@@ -12,11 +12,10 @@ FIXTURE_ROOT = Path(__file__).resolve().parent.parent / "fixtures" / "landmarks"
 _TAGGED = re.compile(r"^(left|right)_([TF]{5})_\d+\.json$", re.IGNORECASE)
 
 
-def load_fixtures(key, dirs=None):
-    """Fixture JSONs (recursive; only under `dirs` if given) with an expected `key` -> pytest params (id = filename)."""
+def load_fixtures(key):
+    """Fixture JSONs (recursive) with an expected `key` -> pytest params (id = filename)."""
     out = []
-    roots = [FIXTURE_ROOT / d for d in dirs] if dirs else [FIXTURE_ROOT]
-    for p in sorted(q for r in roots for q in r.rglob("*.json")):
+    for p in sorted(FIXTURE_ROOT.rglob("*.json")):
         d = json.loads(p.read_text())
         expected = dict(d.get("expected") or {})
         m = _TAGGED.match(p.name)

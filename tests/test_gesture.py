@@ -8,7 +8,7 @@ OPEN, FIST, IDX, ODD = (True,) * 5, (False,) * 5, (False, True, False, False, Fa
 
 
 def hand(tag=None):
-    return SimpleNamespace(label="Left", landmarks=tag)
+    return SimpleNamespace(landmarks=tag)
 
 
 def test_degree_from_fingers():
@@ -22,8 +22,8 @@ def make_src(seq, n=3):
     it = iter(seq)
     seen = []
 
-    def fn(lm, label):
-        seen.append((lm, label))
+    def fn(lm):
+        seen.append(lm)
         return next(it)
     return FingerMapSource(FM, fn, n), seen
 
@@ -32,7 +32,7 @@ def test_finger_source_hold_and_state():
     src, seen = make_src([OPEN, OPEN, OPEN, IDX, IDX, IDX])
     assert src.state is None
     assert src.degree(hand("lm")) == KEEP
-    assert seen == [("lm", "Left")]
+    assert seen == ["lm"]
     src.degree(hand())
     assert src.degree(hand()) == 1
     assert src.state == OPEN

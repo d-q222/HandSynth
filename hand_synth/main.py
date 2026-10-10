@@ -15,7 +15,7 @@ from pathlib import Path
 import cv2
 
 from . import config as cfg
-from . import keycodes, standins
+from . import features, fingers, keycodes
 from .gesture import KEEP, FingerMapSource
 from .music import MODS, chord_name, chord_voicing, midi_to_hz
 from .stabilize import EMA, Hold, RollZone
@@ -127,7 +127,7 @@ class Instrument:
 
         if expr_hand:
             self.expr_missing = 0
-            self.expr_fingers = self.hold_mod.update(self.fingers_fn(expr_hand.landmarks, expr_hand.label))
+            self.expr_fingers = self.hold_mod.update(self.fingers_fn(expr_hand.landmarks))
             mod = cfg.MOD_MAP.get(self.expr_fingers, KEEP)
             if mod != KEEP:
                 new["mod"] = mod
@@ -189,13 +189,13 @@ class Instrument:
 
 def dump_fixture(hands: HandsFrame, fingers_fn, roll_fn) -> list[Path]:
     """Write each visible hand to FIXTURE_DIR/recorded/ as JSON (tests + future ML data).
-    The filename tag (left_TFFFF_007.json) is the expected tuple the tests use. It starts as the
-    stand-in's reading at record time; if that reading is wrong, rename the file."""
+    The filename tag (left_TFFFF_007.json) is the expected tuple the tests use. It starts as
+    fingers_up()'s reading at record time; if that reading is wrong, rename the file."""
     out_dir = REPO_ROOT / cfg.FIXTURE_DIR / "recorded"
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
     for hand in hands.hands():
-        fs = fingers_fn(hand.landmarks, hand.label)
+        fs = fingers_fn(hand.landmarks)
         tag = "".join("T" if f else "F" for f in fs)
         n = 1
         while (path := out_dir / f"{hand.label.lower()}_{tag}_{n:03d}.json").exists():
@@ -304,16 +304,6 @@ def main(argv=None):
     if errs := check_config():
         sys.exit("hand-synth: fix hand_synth/config.py:\n  - " + "\n  - ".join(errs))
 
-    fingers_fn, fingers_status = standins.resolve_fingers()
-    feats, feature_status = standins.resolve_features()
-    badges = []
-    if fingers_status != "manual":
-        badges.append("Stand-in · fingers")
-    if any(v != "manual" for v in feature_status.values()):
-        badges.append("Stand-in · features")
-    for name, status in [("fingers_up", fingers_status), *feature_status.items()]:
-        print(f"  {name:15s} {status}")
-
     cv2.namedWindow(cfg.WINDOW_NAME)
     cap, frame = open_camera(args.camera, on_wait=_wait_screen)
     if cap is None:
@@ -326,10 +316,10 @@ def main(argv=None):
         cap.release()
         sys.exit(f"hand-synth: {e}")
     print(f"  audio output    {synth.output_name}")
-    tracker =Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF,
+    tracker = Tracker(cfg.MODEL_PATH, cfg.MODEL_URL, cfg.MAX_HANDS, cfg.MIN_DETECTION_CONF, cfg.MIN_TRACKING_CONF,
                       cfg.HANDEDNESS)
 
-    inst = Instrument(fingers_fn, feats, key=args.key)
+    inst = Instrument(fingers.fingers_up, features, key=args.key)
     pending = {"key": None}           # set by the mouse callback (runs inside waitKey), applied next frame
     keybar = KeyBar(cfg.KEY_NAMES, on_select=lambda k: pending.update(key=k), height=cfg.KEYBAR_HEIGHT)
     def set_wave(wf):
@@ -395,7 +385,7 @@ def main(argv=None):
                 space=inst.ema_space.value, hint=now - last_hands_t > cfg.HINT_AFTER_S,
                 pinned=frozenset(inst.pinned), waveforms=tuple(cfg.WAVEFORMS),
                 chord_hand=cfg.CHORD_HAND, expr_hand=cfg.EXPR_HAND,
-                fps=fps, xrun=synth.recent_xrun(), audio_error=synth.error, badges=badges,
+                fps=fps, xrun=synth.recent_xrun(), audio_error=synth.error,
                 flash=flash if now < flash_until else None,
             )
             draw_overlay(frame, hands, view, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, ui_mode, hud)
@@ -410,7 +400,7 @@ def main(argv=None):
             if k in (ord("q"), 27) or cv2.getWindowProperty(cfg.WINDOW_NAME, cv2.WND_PROP_VISIBLE) < 1:
                 break
             elif k == ord("r"):
-                paths = dump_fixture(hands, standins.fingers_up, standins.roll_deg)
+                paths = dump_fixture(hands, fingers.fingers_up, features.roll_deg)
                 flash = f"saved {len(paths)} fixture(s)" if paths else "no hands to record"
                 flash_until = now + cfg.FLASH_S
                 for p in paths:

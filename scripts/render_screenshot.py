@@ -7,7 +7,7 @@ import numpy as np
 
 root = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(root), str(root / "tests")]
-from hand_synth import config as cfg, standins  # noqa: E402
+from hand_synth import config as cfg, features, fingers  # noqa: E402
 from hand_synth.main import Instrument  # noqa: E402
 from hand_synth.tracking import Hand, HandsFrame  # noqa: E402
 from hand_synth.ui import KeyBar, OverlayState, draw_overlay  # noqa: E402
@@ -16,7 +16,7 @@ from synthetic_hand import make_hand  # noqa: E402
 left = Hand("Left", make_hand((False, True, False, False, False), "Left", roll_deg=-8, scale=1.1, center=(0.52, 0.56)), 0.97)
 right = Hand("Right", make_hand((False, True, True, True, False), "Right", roll_deg=6, scale=1.1, center=(1.30, 0.50)), 0.97)
 hands = HandsFrame(left, right)
-inst = Instrument(standins.fingers_up, standins, key="G")
+inst = Instrument(fingers.fingers_up, features, key="G")
 for _ in range(12):
     inst.update(hands)
 

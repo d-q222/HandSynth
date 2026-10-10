@@ -29,7 +29,7 @@ def test_overlay_draws_everywhere(size, mode):
         right=Hand("Right", make_hand(OPEN, "Right", center=(aspect - 0.02, 0.05)), 0.9),
         aspect=aspect)
     for s in (state(), state(degree=None, chord="", hint=True), state(xrun=True, audio_error="boom " * 40,
-              badges=["Stand-in · fingers"], flash="saved 1 fixture(s)", roll=None, expr_fingers=OPEN)):
+              flash="saved 1 fixture(s)", roll=None, expr_fingers=OPEN)):
         frame = np.full((h, w, 3), 90, np.uint8)
         draw_overlay(frame, hands, s, cfg.KEYBAR_HEIGHT, cfg.HUD_HEIGHT, mode)
         if mode != "clean":

@@ -17,7 +17,7 @@ class GestureSource(Protocol):
 
 
 class FingerMapSource:
-    """v1: fingers_fn(landmarks, label) -> Hold -> finger_map."""
+    """v1: fingers_fn(landmarks) -> Hold -> finger_map."""
 
     def __init__(self, finger_map, fingers_fn, hold_frames):
         self.finger_map = finger_map
@@ -30,7 +30,7 @@ class FingerMapSource:
         return self._hold.value
 
     def degree(self, hand):
-        self._hold.update(tuple(self.fingers_fn(hand.landmarks, hand.label)))
+        self._hold.update(tuple(self.fingers_fn(hand.landmarks)))
         return degree_from_fingers(self._hold.value, self.finger_map)
 
     def reset(self):

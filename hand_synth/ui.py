@@ -4,7 +4,7 @@ Text is rendered with a real TrueType font (Pillow) and cached as alpha masks, s
 cost is a handful of small blends. Panels are rounded, translucent, and blended only over their
 own region.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Callable
 
@@ -24,7 +24,6 @@ TRACK = (70, 66, 62)
 CHORD_COLOR = (212, 234, 94)    # teal: chord hand
 EXPR_COLOR = (36, 191, 251)     # amber: expression hand
 ALERT = (113, 113, 248)
-MUTED = (120, 105, 95)          # slate: stand-in badges
 PANEL_ALPHA = 0.62
 MARGIN = 16
 
@@ -155,7 +154,6 @@ class OverlayState:
     fps: float = 0.0
     xrun: bool = False
     audio_error: str | None = None
-    badges: list[str] = field(default_factory=list)   # e.g. "STAND-IN fingers"
     flash: str | None = None
 
 
@@ -271,8 +269,8 @@ def draw_overlay(frame, hands: HandsFrame, s: OverlayState, keybar_height: int, 
 
     alerts = (["AUDIO ERROR"] if s.audio_error else []) + (["XRUN"] if s.xrun else [])
     bx = w - MARGIN
-    for b in alerts + (s.badges if mode == "full" else []):
-        bw, _ = pill(frame, b, bx, top, 13, TEXT, ALERT if b in alerts else MUTED, alpha=0.85, anchor="rt")
+    for b in alerts:
+        bw, _ = pill(frame, b, bx, top, 13, TEXT, ALERT, alpha=0.85, anchor="rt")
         bx -= bw + 8
 
     hud_top = h - MARGIN - hud_height

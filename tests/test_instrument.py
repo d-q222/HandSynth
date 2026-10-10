@@ -1,8 +1,8 @@
-"""Manual acceptance checklist, automated with synthetic hands (stand-in geometry)."""
+"""Manual acceptance checklist, automated with synthetic hands."""
 import pytest
 
 from hand_synth import config as cfg
-from hand_synth import standins
+from hand_synth import features, fingers
 from hand_synth.main import Instrument
 from hand_synth.music import chord_midi
 from hand_synth.tracking import Hand, HandsFrame, _assign
@@ -32,7 +32,7 @@ def play(inst, frames, lh=None, rh=None, key=None):
 
 @pytest.fixture
 def inst():
-    return Instrument(standins.fingers_up, standins, key="G")
+    return Instrument(fingers.fingers_up, features, key="G")
 
 
 def names(inst):
@@ -146,12 +146,12 @@ def test_dump_fixture_never_overwrites(tmp_path, monkeypatch):
     import hand_synth.main as m
     monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
     hands = HandsFrame(left=left(OPEN), right=None)
-    first = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
-    second = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
+    first = m.dump_fixture(hands, fingers.fingers_up, features.roll_deg)[0]
+    second = m.dump_fixture(hands, fingers.fingers_up, features.roll_deg)[0]
     assert first.name == "left_TTTTT_001.json" and second.name == "left_TTTTT_002.json"
     second_bytes = second.read_bytes()
     first.rename(first.with_name("left_FTTTT_001.json"))        # reviewed + renamed
-    third = m.dump_fixture(hands, standins.fingers_up, standins.roll_deg)[0]
+    third = m.dump_fixture(hands, fingers.fingers_up, features.roll_deg)[0]
     assert third != second and second.read_bytes() == second_bytes   # freed slot reused, nothing clobbered
     d = json.loads(third.read_text())
     assert d["label"] == "Left" and len(d["landmarks"]) == 21 and d["source"] == "recorded"
@@ -209,7 +209,7 @@ def test_space_grows_outward_for_either_expression_hand(monkeypatch, expr):
 
     def space_at(frac_from_midline):          # 0 = frame centre, 1 = the hand's own outer edge
         x = aspect * (0.5 + 0.5 * frac_from_midline if expr == "Right" else 0.5 - 0.5 * frac_from_midline)
-        inst = Instrument(standins.fingers_up, standins, key="C")
+        inst = Instrument(fingers.fingers_up, features, key="C")
         hand = Hand(expr, make_hand(OPEN, expr, center=(x, 0.5)), 0.9)
         for _ in range(40):
             inst.update(HandsFrame(left=hand if expr == "Left" else None, right=hand if expr == "Right" else None))
