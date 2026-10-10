@@ -1,4 +1,3 @@
-"""MANUAL — written by Daniel (AI review allowed after tests/test_features.py passes)."""
 import math
 
 

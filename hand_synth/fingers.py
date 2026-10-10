@@ -1,4 +1,3 @@
-"""MANUAL — written by Daniel, no AI assistance (course reconstruct gate)."""
 import math
 
 FingerState = tuple[bool, bool, bool, bool, bool]
