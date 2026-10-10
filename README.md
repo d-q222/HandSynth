@@ -4,6 +4,8 @@ A webcam instrument. Hold your hands up to the camera: the **left hand picks the
 **right hand shapes it**. Chords stay in the chosen key, switch without clicks, and sit low enough
 to sing over.
 
+https://github.com/user-attachments/assets/7bd4a5fa-ccfb-4858-b1ae-c3ddc94fb6c7
+
 ![Hand Synth overlay: left hand plays ii in G, right hand adds the 7th → Am7](docs/screenshot.png)
 
 <sub>Overlay rendered with synthetic hands (left: index → ii; right: three fingers → add7). Regenerate with `python scripts/render_screenshot.py`.</sub>
