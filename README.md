@@ -97,16 +97,6 @@ Other behaviour:
   it's in, with a small dead band at the centre. `HANDEDNESS = "mediapipe"` switches back to the classifier.
 - **Every gesture mapping lives in [`hand_synth/config.py`](hand_synth/config.py)** (`FINGER_MAP`, `MOD_MAP`), along with every other tunable. To redesign the instrument, edit that file.
 
-## The hand-written parts
-
-`fingers.py::fingers_up()` and `features.py` are written by hand. Their gate tests:
-
-```bash
-.venv/bin/python -m pytest tests/test_fingers.py tests/test_features.py
-```
-
-On a failure they report only the fixture name.
-
 ## Fixtures
 
 The fixtures live under `fixtures/landmarks/`, one JSON file per hand:
@@ -118,7 +108,7 @@ The fixtures live under `fixtures/landmarks/`, one JSON file per hand:
 | `real/` | Landmarks from MediaPipe's public test photos (some rotated or upside down), with fingers checked by eye. |
 | `recorded/` | What `r` saves from your own camera. The filename and `expected.fingers` come from `fingers_up()`'s reading at that moment, so **check each one and rename it if it misread your hand.** |
 
-Recording ~15 poses per hand plus a few rolled poses is the best test of your `fingers_up()`. It's also the starting dataset for the later classifier (`gesture.ClassifierSource`).
+Recording ~15 poses per hand plus a few rolled poses is the best test of `fingers_up()`. It's also the starting dataset for the later classifier (`gesture.ClassifierSource`).
 
 ## Sound
 
@@ -163,8 +153,8 @@ hand_synth/
   config.py        all tunables (data only)
   main.py          camera loop; Instrument = per-frame mapping (testable)
   tracking.py      MediaPipe HandLandmarker wrapper -> HandsFrame
-  fingers.py       MANUAL  fingers_up()
-  features.py      MANUAL  roll/pinch/wrist/vector
+  fingers.py       fingers_up(): which fingers are extended
+  features.py      hand size, wrist, pinch, roll, feature vector
   stabilize.py     Hold, RollZone, EMA
   gesture.py       finger tuple -> degree; ClassifierSource seam
   music.py         key/scale/chord math -> MIDI, Hz, names

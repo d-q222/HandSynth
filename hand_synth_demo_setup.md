@@ -133,8 +133,8 @@ What to notice:
 
 - All three scripts run from a clean `source .venv/bin/activate`.
 - You can say, without looking, why the mirror flip comes before MediaPipe, why fingertip y decreases when the finger goes up, why the fade exists, and why phase carries across callbacks.
-- Then: new folder, write `fingers_up()`.
+- Then: move on to the full app.
 
 ## What this demo deliberately does not do
 
-No `fingers_up()` (that stays cold for the gate), no config, no chords-from-gestures, no filter, no UI. Resist adding them here. The point of a throwaway is that you throw it away.
+No `fingers_up()`, no config, no chords-from-gestures, no filter, no UI. Resist adding them here. The point of a throwaway is that you throw it away.

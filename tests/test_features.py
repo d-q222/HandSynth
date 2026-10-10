@@ -1,4 +1,4 @@
-"""Gate for hand_synth.features."""
+"""Checks for hand_synth.features."""
 import math
 
 import pytest

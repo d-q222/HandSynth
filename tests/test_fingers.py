@@ -1,4 +1,4 @@
-"""The reconstruct gate: hand_synth.fingers.fingers_up must match every fixture."""
+"""hand_synth.fingers.fingers_up must match every fixture."""
 import pytest
 
 from conftest import load_fixtures
